@@ -27,12 +27,16 @@ class EzLive {
         this.drawingContext = null;
         this.isDrawing = false;
         this.isEraser = false;
+        this.isPointer = false;
+        this.pointerElement = null;
+        this.drawingWindow = null;
         this.mediaRecorder = null;
         this.recordedChunks = [];
         this.isRecording = false;
         this.invitationCode = null;
         
         this.initializeElements();
+        this.loadTeacherInfo();
         this.attachEventListeners();
         this.setupChatSync();
         this.checkInvitationLink();
@@ -68,6 +72,7 @@ class EzLive {
         this.fileInput = document.getElementById('fileInput');
         this.teacherPassword = document.getElementById('teacherPassword');
         this.teacherName = document.getElementById('teacherName');
+        this.teacherClassCode = document.getElementById('teacherClassCode');
         this.studentName = document.getElementById('studentName');
         this.endCallBtn = document.getElementById('endCallBtn');
         this.lmsBtn = document.getElementById('lmsBtn');
@@ -117,7 +122,9 @@ class EzLive {
         this.eraserBtn = document.getElementById('eraserBtn');
         this.clearDrawingBtn = document.getElementById('clearDrawingBtn');
         this.penBtn = document.getElementById('penBtn');
+        this.pointerBtn = document.getElementById('pointerBtn');
         this.closeDrawingBtn = document.getElementById('closeDrawingBtn');
+        this.drawingBtn = document.getElementById('drawingBtn');
     }
 
     attachEventListeners() {
@@ -163,8 +170,44 @@ class EzLive {
         });
         if (this.eraserBtn) this.eraserBtn.addEventListener('click', () => this.activateEraser());
         if (this.penBtn) this.penBtn.addEventListener('click', () => this.activatePen());
+        if (this.pointerBtn) this.pointerBtn.addEventListener('click', () => this.activatePointer());
         if (this.clearDrawingBtn) this.clearDrawingBtn.addEventListener('click', () => this.clearDrawing());
         if (this.closeDrawingBtn) this.closeDrawingBtn.addEventListener('click', () => this.closeDrawingTools());
+        if (this.drawingBtn) this.drawingBtn.addEventListener('click', () => this.openDrawingWindow());
+    }
+
+    loadTeacherInfo() {
+        // localStorage에서 교사 정보 불러오기
+        const savedTeacherName = localStorage.getItem('ezlive_teacher_name');
+        const savedTeacherPassword = localStorage.getItem('ezlive_teacher_password');
+        const savedClassCode = localStorage.getItem('ezlive_class_code');
+
+        if (savedTeacherName && this.teacherName) {
+            this.teacherName.value = savedTeacherName;
+        }
+        if (savedTeacherPassword && this.teacherPassword) {
+            this.teacherPassword.value = savedTeacherPassword;
+        }
+        if (savedClassCode && this.teacherClassCode) {
+            this.teacherClassCode.value = savedClassCode;
+        }
+    }
+
+    saveTeacherInfo(name, password, classCode) {
+        // localStorage에 교사 정보 저장
+        localStorage.setItem('ezlive_teacher_name', name);
+        localStorage.setItem('ezlive_teacher_password', password);
+        localStorage.setItem('ezlive_class_code', classCode);
+    }
+
+    generateRandomClassCode() {
+        // 랜덤 강의코드 생성 (8자리)
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        let code = '';
+        for (let i = 0; i < 8; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
     }
 
     showStep(stepNumber) {
@@ -289,12 +332,19 @@ class EzLive {
             return;
         }
 
+        // 강의 코드 확인 (비어있으면 자동 생성)
+        let classCode = this.teacherClassCode.value.trim();
+        if (!classCode) {
+            classCode = this.generateRandomClassCode();
+            this.teacherClassCode.value = classCode;
+        }
+
         try {
             this.isHost = true;
             this.myName = name;
             
-            // Create a new Peer with random ID
-            this.peer = new Peer({
+            // 고정된 PeerID로 생성 (강의 코드 사용)
+            this.peer = new Peer(classCode, {
                 config: {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
@@ -307,6 +357,9 @@ class EzLive {
                 console.log('My peer ID is: ' + id);
                 this.myPeerIdDisplay.textContent = id;
                 
+                // 교사 정보 저장
+                this.saveTeacherInfo(name, password, classCode);
+                
                 // 초대링크 생성 및 표시
                 this.generateInvitationLink(id);
                 
@@ -316,7 +369,15 @@ class EzLive {
 
             this.peer.on('error', (err) => {
                 console.error('Peer error:', err);
-                alert('연결 오류가 발생했습니다: ' + err.message);
+                
+                // ID가 이미 사용 중인 경우
+                if (err.type === 'unavailable-id') {
+                    alert('❌ 이 강의 코드는 이미 사용 중입니다.\n다른 강의 코드를 입력해주세요.');
+                    this.teacherClassCode.value = '';
+                    this.teacherClassCode.focus();
+                } else {
+                    alert('연결 오류가 발생했습니다: ' + err.message);
+                }
             });
 
         } catch (error) {
@@ -754,9 +815,10 @@ class EzLive {
                 });
             }
 
-            // 판서 도구 표시 및 캔버스 생성
-            this.showDrawingTools();
-            this.createDrawingCanvas();
+            // 판서 버튼 표시 (자동으로 도구는 표시하지 않음)
+            if (this.drawingBtn) {
+                this.drawingBtn.style.display = 'flex';
+            }
 
             screenVideoTrack.onended = () => {
                 this.stopScreenShare();
@@ -817,9 +879,16 @@ class EzLive {
                 });
             }
             
-            // 판서 도구 숨기기 및 캔버스 제거
+            // 판서 도구 숨기기 및 캔버스 제거, 판서 버튼 숨기기
             this.hideDrawingTools();
             this.removeDrawingCanvas();
+            if (this.drawingBtn) {
+                this.drawingBtn.style.display = 'none';
+            }
+            if (this.drawingWindow && !this.drawingWindow.closed) {
+                this.drawingWindow.close();
+                this.drawingWindow = null;
+            }
 
         } catch (error) {
             console.error('Error stopping screen share:', error);
@@ -1805,9 +1874,29 @@ class EzLive {
             this.drawingCanvas = null;
             this.drawingContext = null;
         }
+        
+        // 포인터도 제거
+        if (this.pointerElement) {
+            this.pointerElement.remove();
+            this.pointerElement = null;
+        }
     }
 
     startDrawing(e) {
+        // 포인터 모드일 때는 그리기 안 함
+        if (this.isPointer) {
+            const rect = this.drawingCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (this.pointerElement) {
+                this.pointerElement.style.display = 'block';
+                this.pointerElement.style.left = (rect.left + x) + 'px';
+                this.pointerElement.style.top = (rect.top + y) + 'px';
+            }
+            return;
+        }
+        
         this.isDrawing = true;
         const rect = this.drawingCanvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -1818,11 +1907,21 @@ class EzLive {
     }
 
     draw(e) {
-        if (!this.isDrawing) return;
-        
         const rect = this.drawingCanvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+        
+        // 포인터 모드일 때는 포인터만 이동
+        if (this.isPointer) {
+            if (this.pointerElement) {
+                this.pointerElement.style.display = 'block';
+                this.pointerElement.style.left = (rect.left + x) + 'px';
+                this.pointerElement.style.top = (rect.top + y) + 'px';
+            }
+            return;
+        }
+        
+        if (!this.isDrawing) return;
         
         this.drawingContext.lineTo(x, y);
         this.drawingContext.strokeStyle = this.isEraser ? '#FFFFFF' : this.drawColor.value;
@@ -1833,25 +1932,72 @@ class EzLive {
     }
 
     stopDrawing() {
+        // 포인터 숨기기
+        if (this.isPointer && this.pointerElement) {
+            this.pointerElement.style.display = 'none';
+        }
+        
         this.isDrawing = false;
         this.drawingContext.beginPath();
     }
 
     activateEraser() {
         this.isEraser = true;
+        this.isPointer = false;
         if (this.eraserBtn) this.eraserBtn.classList.add('active');
         if (this.penBtn) this.penBtn.classList.remove('active');
+        if (this.pointerBtn) this.pointerBtn.classList.remove('active');
         if (this.drawingCanvas) {
             this.drawingCanvas.style.cursor = 'pointer';
+        }
+        // 포인터 제거
+        if (this.pointerElement) {
+            this.pointerElement.remove();
+            this.pointerElement = null;
         }
     }
 
     activatePen() {
         this.isEraser = false;
+        this.isPointer = false;
         if (this.eraserBtn) this.eraserBtn.classList.remove('active');
         if (this.penBtn) this.penBtn.classList.add('active');
+        if (this.pointerBtn) this.pointerBtn.classList.remove('active');
         if (this.drawingCanvas) {
             this.drawingCanvas.style.cursor = 'crosshair';
+        }
+        // 포인터 제거
+        if (this.pointerElement) {
+            this.pointerElement.remove();
+            this.pointerElement = null;
+        }
+    }
+
+    activatePointer() {
+        this.isEraser = false;
+        this.isPointer = true;
+        if (this.eraserBtn) this.eraserBtn.classList.remove('active');
+        if (this.penBtn) this.penBtn.classList.remove('active');
+        if (this.pointerBtn) this.pointerBtn.classList.add('active');
+        if (this.drawingCanvas) {
+            this.drawingCanvas.style.cursor = 'none';
+        }
+        
+        // 포인터 생성
+        if (!this.pointerElement) {
+            this.pointerElement = document.createElement('div');
+            this.pointerElement.style.cssText = `
+                position: absolute;
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                background: radial-gradient(circle, rgba(255,0,0,0.8) 0%, rgba(255,0,0,0.4) 50%, rgba(255,0,0,0) 100%);
+                pointer-events: none;
+                z-index: 10000;
+                transform: translate(-50%, -50%);
+                display: none;
+            `;
+            this.localVideoWrapper.appendChild(this.pointerElement);
         }
     }
 
@@ -1859,6 +2005,196 @@ class EzLive {
         if (this.drawingCanvas && this.drawingContext) {
             this.drawingContext.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
         }
+    }
+
+    openDrawingWindow() {
+        // 이미 열려있으면 포커스
+        if (this.drawingWindow && !this.drawingWindow.closed) {
+            this.drawingWindow.focus();
+            return;
+        }
+
+        // 캔버스 생성 (아직 없으면)
+        if (!this.drawingCanvas) {
+            this.createDrawingCanvas();
+        }
+
+        // 판서 도구 새창 열기
+        const width = 350;
+        const height = 400;
+        const left = (screen.width - width) / 2;
+        const top = (screen.height - height) / 2;
+
+        this.drawingWindow = window.open(
+            '', 
+            'ezlive_drawing', 
+            `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no`
+        );
+
+        this.drawingWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>🖊️ ezlive 판서 도구</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: 'Segoe UI', sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        padding: 20px;
+                        display: flex;
+                        flex-direction: column;
+                        height: 100vh;
+                    }
+                    .header {
+                        background: white;
+                        border-radius: 10px;
+                        padding: 15px;
+                        margin-bottom: 20px;
+                        text-align: center;
+                        font-size: 1.3rem;
+                        font-weight: bold;
+                        color: #333;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                    }
+                    .tools {
+                        background: white;
+                        border-radius: 10px;
+                        padding: 20px;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                        display: flex;
+                        flex-direction: column;
+                        gap: 15px;
+                    }
+                    .tool-row {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }
+                    label {
+                        font-weight: 600;
+                        color: #555;
+                        min-width: 60px;
+                    }
+                    input[type="color"] {
+                        width: 60px;
+                        height: 40px;
+                        border: 2px solid #ddd;
+                        border-radius: 5px;
+                        cursor: pointer;
+                    }
+                    input[type="range"] {
+                        flex: 1;
+                    }
+                    .btn-group {
+                        display: flex;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                    }
+                    .btn-tool {
+                        flex: 1;
+                        padding: 12px;
+                        border: 2px solid #ddd;
+                        background: white;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.3s;
+                        font-size: 0.9rem;
+                        font-weight: 600;
+                    }
+                    .btn-tool:hover {
+                        background: #f5f5f5;
+                        transform: translateY(-2px);
+                    }
+                    .btn-tool.active {
+                        background: #667eea;
+                        color: white;
+                        border-color: #667eea;
+                    }
+                    .width-value {
+                        font-weight: bold;
+                        color: #667eea;
+                        min-width: 30px;
+                        text-align: center;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">🖊️ 판서 도구</div>
+                <div class="tools">
+                    <div class="tool-row">
+                        <label>색상:</label>
+                        <input type="color" id="drawColor" value="#ff0000">
+                    </div>
+                    
+                    <div class="tool-row">
+                        <label>굵기:</label>
+                        <input type="range" id="drawWidth" min="1" max="20" value="3">
+                        <span class="width-value" id="widthValue">3</span>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button id="penBtn" class="btn-tool active">🖊️ 펜</button>
+                        <button id="eraserBtn" class="btn-tool">🧹 지우개</button>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button id="pointerBtn" class="btn-tool">🔴 포인터</button>
+                        <button id="clearDrawingBtn" class="btn-tool">🗑️ 전체삭제</button>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+        
+        this.drawingWindow.document.close();
+
+        // 새창의 컨트롤을 부모 창과 연결
+        setTimeout(() => {
+            const win = this.drawingWindow;
+            const mainWindow = window;
+            
+            // 색상 변경
+            win.document.getElementById('drawColor').addEventListener('input', (e) => {
+                if (mainWindow.app.drawColor) {
+                    mainWindow.app.drawColor.value = e.target.value;
+                }
+            });
+            
+            // 굵기 변경
+            win.document.getElementById('drawWidth').addEventListener('input', (e) => {
+                if (mainWindow.app.drawWidth) {
+                    mainWindow.app.drawWidth.value = e.target.value;
+                }
+                win.document.getElementById('widthValue').textContent = e.target.value;
+            });
+            
+            // 펜 버튼
+            win.document.getElementById('penBtn').addEventListener('click', () => {
+                mainWindow.app.activatePen();
+                win.document.querySelectorAll('.btn-tool').forEach(b => b.classList.remove('active'));
+                win.document.getElementById('penBtn').classList.add('active');
+            });
+            
+            // 지우개 버튼
+            win.document.getElementById('eraserBtn').addEventListener('click', () => {
+                mainWindow.app.activateEraser();
+                win.document.querySelectorAll('.btn-tool').forEach(b => b.classList.remove('active'));
+                win.document.getElementById('eraserBtn').classList.add('active');
+            });
+            
+            // 포인터 버튼
+            win.document.getElementById('pointerBtn').addEventListener('click', () => {
+                mainWindow.app.activatePointer();
+                win.document.querySelectorAll('.btn-tool').forEach(b => b.classList.remove('active'));
+                win.document.getElementById('pointerBtn').classList.add('active');
+            });
+            
+            // 전체 삭제 버튼
+            win.document.getElementById('clearDrawingBtn').addEventListener('click', () => {
+                mainWindow.app.clearDrawing();
+            });
+        }, 100);
     }
 }
 

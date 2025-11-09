@@ -101,6 +101,10 @@ header p {
     background: #FF9800;
 }
 
+.btn-control-bar.btn-drawing {
+    background: #9C27B0;
+}
+
 .btn-control-bar:active {
     transform: translateY(0);
 }
@@ -298,6 +302,14 @@ header p {
 .input:focus {
     outline: none;
     border-color: #667eea;
+}
+
+.hint {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: -10px;
+    margin-bottom: 15px;
+    font-style: italic;
 }
 
 .share-box {
