@@ -1232,33 +1232,48 @@ class EzLive {
     }
 
     openRecordFolder() {
-        // 브라우저 다운로드 폴더 안내
         const timestamp = new Date().toLocaleTimeString('ko-KR', { 
             hour: '2-digit', 
             minute: '2-digit' 
         });
         
-        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        // Chrome에서 다운로드 폴더 열기 시도
+        if (window.chrome && chrome.downloads) {
+            chrome.downloads.showDefaultFolder();
+            this.displayMessage(`다운로드 폴더를 열었습니다.`, 'system', timestamp);
+            return;
+        }
         
-        let message = '녹화 파일은 브라우저 기본 다운로드 폴더에 저장됩니다.\n\n';
+        // 다른 브라우저는 안내 메시지 표시
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const isWindows = navigator.platform.toUpperCase().indexOf('WIN') >= 0;
+        
+        let message = '📁 녹화 파일 저장 위치\n\n';
+        message += '녹화 파일은 브라우저 기본 다운로드 폴더에 저장됩니다.\n\n';
         
         if (isMac) {
-            message += '📁 Mac 다운로드 폴더:\n';
-            message += '- ~/Downloads/\n';
-            message += '- Finder > 다운로드\n\n';
-            message += '💡 Tip: Finder에서 Command + Option + L을 누르면 다운로드 폴더가 열립니다.';
+            message += '🍎 Mac:\n';
+            message += '1. Finder 열기\n';
+            message += '2. "다운로드" 폴더 클릭\n';
+            message += '3. 또는 Cmd + Option + L 단축키\n';
+            message += '4. 경로: ~/Downloads/\n\n';
+            message += '🔍 파일명: ezlive_recording_날짜_시간.webm';
+        } else if (isWindows) {
+            message += '💻 Windows:\n';
+            message += '1. 파일 탐색기 열기 (Win + E)\n';
+            message += '2. "다운로드" 폴더 클릭\n';
+            message += '3. 또는 주소창에 입력: shell:downloads\n';
+            message += '4. 경로: C:\\Users\\사용자명\\Downloads\\\n\n';
+            message += '🔍 파일명: ezlive_recording_날짜_시간.webm';
         } else {
-            message += '📁 Windows 다운로드 폴더:\n';
-            message += '- C:\\Users\\사용자명\\Downloads\\\n';
-            message += '- 내 PC > 다운로드\n\n';
-            message += '💡 Tip: Windows 탐색기 주소창에 다음을 입력하세요:\n';
-            message += 'shell:downloads';
+            message += '📂 일반적인 다운로드 폴더:\n';
+            message += '- 브라우저 설정에서 다운로드 폴더 확인\n';
+            message += '- 파일 관리자에서 "다운로드" 폴더 찾기\n\n';
+            message += '🔍 파일명: ezlive_recording_날짜_시간.webm';
         }
         
         alert(message);
-        
-        // 채팅에도 안내
-        this.displayMessage(`녹화 파일은 브라우저 다운로드 폴더에 저장됩니다.`, 'system', timestamp);
+        this.displayMessage(`다운로드 폴더 안내를 표시했습니다.`, 'system', timestamp);
     }
 
     toggleFullscreen(target) {
@@ -2293,6 +2308,12 @@ class EzLive {
     // 화이트보드 열기
     async openWhiteboard() {
         try {
+            // 화면 공유 중이면 화면 공유 판서 도구 사용 안내
+            if (this.isScreenSharing) {
+                alert('화면 공유 중에는 화면공유 판서 도구를 사용하세요.\n채팅 헤더의 ✏️ 버튼을 클릭하세요.');
+                return;
+            }
+            
             // 화이트보드 새창 열기
             const width = 1200;
             const height = 800;
@@ -2401,6 +2422,10 @@ class EzLive {
                         <div class="tool-group">
                             <button id="clearBtn" class="btn-tool">🗑️ 전체삭제</button>
                         </div>
+                        <div class="tool-group">
+                            <button id="savePngBtn" class="btn-tool" style="background: #4CAF50; color: white;">💾 PNG저장</button>
+                            <button id="savePdfBtn" class="btn-tool" style="background: #FF5722; color: white;">📄 PDF저장</button>
+                        </div>
                     </div>
                     <canvas id="canvas"></canvas>
                     <script>
@@ -2455,6 +2480,62 @@ class EzLive {
                         // 전체 삭제
                         clearBtn.addEventListener('click', () => {
                             ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        });
+                        
+                        // PNG 저장
+                        const savePngBtn = document.getElementById('savePngBtn');
+                        savePngBtn.addEventListener('click', () => {
+                            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                            const filename = \`ezlive_whiteboard_\${timestamp}.png\`;
+                            
+                            canvas.toBlob((blob) => {
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = filename;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                alert('PNG 파일로 저장되었습니다!\\n파일명: ' + filename);
+                            }, 'image/png');
+                        });
+                        
+                        // PDF 저장
+                        const savePdfBtn = document.getElementById('savePdfBtn');
+                        savePdfBtn.addEventListener('click', async () => {
+                            try {
+                                // jsPDF 라이브러리 동적 로드
+                                if (typeof window.jspdf === 'undefined') {
+                                    const script = document.createElement('script');
+                                    script.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+                                    document.head.appendChild(script);
+                                    
+                                    await new Promise((resolve, reject) => {
+                                        script.onload = resolve;
+                                        script.onerror = reject;
+                                    });
+                                }
+                                
+                                const { jsPDF } = window.jspdf;
+                                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                                const filename = \`ezlive_whiteboard_\${timestamp}.pdf\`;
+                                
+                                // 캔버스를 이미지로 변환
+                                const imgData = canvas.toDataURL('image/png');
+                                
+                                // PDF 생성 (캔버스 크기에 맞춤)
+                                const pdf = new jsPDF({
+                                    orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+                                    unit: 'px',
+                                    format: [canvas.width, canvas.height]
+                                });
+                                
+                                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                                pdf.save(filename);
+                                alert('PDF 파일로 저장되었습니다!\\n파일명: ' + filename);
+                            } catch (error) {
+                                console.error('PDF 저장 오류:', error);
+                                alert('PDF 저장에 실패했습니다. PNG로 저장해주세요.');
+                            }
                         });
                         
                         // 색상 변경
@@ -2554,8 +2635,12 @@ class EzLive {
                     if (canvas) {
                         this.whiteboardStream = canvas.captureStream(30); // 30 FPS
                         
-                        // 스트림을 로컬 비디오로 전환
-                        this.originalStream = this.localStream;
+                        // 원본 카메라 스트림 저장 (처음 열 때만)
+                        if (!this.originalStream) {
+                            this.originalStream = this.localStream;
+                        }
+                        
+                        // 화이트보드 스트림으로 전환
                         const audioTrack = this.originalStream.getAudioTracks()[0];
                         const videoTrack = this.whiteboardStream.getVideoTracks()[0];
                         this.localStream = new MediaStream([videoTrack, audioTrack]);
@@ -2618,25 +2703,28 @@ class EzLive {
             }
             
             if (this.originalStream) {
+                // 원본 카메라 스트림으로 복원
                 this.localStream = this.originalStream;
                 this.localVideo.srcObject = this.localStream;
                 
-                // 상대방에게 스트림 전송
+                // 상대방에게 원본 스트림 전송
                 if (this.call && this.call.peerConnection) {
                     const videoTrack = this.originalStream.getVideoTracks()[0];
                     const sender = this.call.peerConnection.getSenders().find(s => 
                         s.track && s.track.kind === 'video'
                     );
                     if (sender && videoTrack) {
-                        sender.replaceTrack(videoTrack);
+                        await sender.replaceTrack(videoTrack);
                     }
                 }
+                
+                // originalStream은 유지 (다음에 다시 사용)
+                // this.originalStream = null; ← 이 줄을 제거하여 카메라 스트림 유지
             }
             
             this.whiteboardWindow = null;
             this.whiteboardStream = null;
             this.isWhiteboardActive = false;
-            this.originalStream = null;
             
             if (this.whiteboardBtn) {
                 this.whiteboardBtn.classList.remove('active');

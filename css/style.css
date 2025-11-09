@@ -47,6 +47,9 @@ header p {
     border-radius: 15px;
     margin-bottom: 20px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .btn-control-bar {
@@ -64,6 +67,7 @@ header p {
     transition: all 0.3s ease;
     min-width: 80px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
 }
 
 .btn-control-bar .icon {
