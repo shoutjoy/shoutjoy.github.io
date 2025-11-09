@@ -2280,7 +2280,6 @@ class EzLive {
             });
         }, 100);
     }
-}
 
     // 화이트보드 토글
     async toggleWhiteboard() {
