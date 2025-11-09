@@ -30,6 +30,12 @@ class EzLive {
         this.isPointer = false;
         this.pointerElement = null;
         this.drawingWindow = null;
+        this.whiteboardWindow = null;
+        this.whiteboardStream = null;
+        this.isWhiteboardActive = false;
+        this.screenShareDrawingCanvas = null;
+        this.screenShareDrawingContext = null;
+        this.isScreenShareDrawing = false;
         this.mediaRecorder = null;
         this.recordedChunks = [];
         this.isRecording = false;
@@ -125,6 +131,7 @@ class EzLive {
         this.pointerBtn = document.getElementById('pointerBtn');
         this.closeDrawingBtn = document.getElementById('closeDrawingBtn');
         this.drawingBtn = document.getElementById('drawingBtn');
+        this.whiteboardBtn = document.getElementById('whiteboardBtn');
     }
 
     attachEventListeners() {
@@ -174,6 +181,7 @@ class EzLive {
         if (this.clearDrawingBtn) this.clearDrawingBtn.addEventListener('click', () => this.clearDrawing());
         if (this.closeDrawingBtn) this.closeDrawingBtn.addEventListener('click', () => this.closeDrawingTools());
         if (this.drawingBtn) this.drawingBtn.addEventListener('click', () => this.openDrawingWindow());
+        if (this.whiteboardBtn) this.whiteboardBtn.addEventListener('click', () => this.toggleWhiteboard());
     }
 
     loadTeacherInfo() {
@@ -768,14 +776,23 @@ class EzLive {
 
     async startScreenShare() {
         try {
+            // 모바일 감지
+            const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+            
             if (!navigator.mediaDevices.getDisplayMedia) {
-                alert('화면 공유는 이 브라우저에서 지원되지 않습니다.');
+                if (isMobile) {
+                    alert('이 모바일 브라우저는 화면 공유를 지원하지 않습니다.\nChrome 또는 Safari 최신 버전을 사용해주세요.');
+                } else {
+                    alert('화면 공유는 이 브라우저에서 지원되지 않습니다.');
+                }
                 return;
             }
 
+            // 모바일과 데스크톱에서 모두 작동
             this.screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    cursor: 'always'
+                    cursor: isMobile ? undefined : 'always',
+                    displaySurface: isMobile ? undefined : 'monitor'
                 },
                 audio: false
             });
@@ -815,9 +832,20 @@ class EzLive {
                 });
             }
 
-            // 판서 버튼 표시 (자동으로 도구는 표시하지 않음)
+            // 화면공유용 판서 버튼 표시
             if (this.drawingBtn) {
                 this.drawingBtn.style.display = 'flex';
+            }
+            
+            // 버튼 이벤트를 화면공유용으로 변경
+            if (this.drawingBtn) {
+                // 기존 이벤트 제거
+                const newDrawingBtn = this.drawingBtn.cloneNode(true);
+                this.drawingBtn.parentNode.replaceChild(newDrawingBtn, this.drawingBtn);
+                this.drawingBtn = newDrawingBtn;
+                
+                // 화면공유용 판서 이벤트 추가
+                this.drawingBtn.addEventListener('click', () => this.toggleScreenShareDrawing());
             }
 
             screenVideoTrack.onended = () => {
@@ -879,9 +907,10 @@ class EzLive {
                 });
             }
             
-            // 판서 도구 숨기기 및 캔버스 제거, 판서 버튼 숨기기
-            this.hideDrawingTools();
-            this.removeDrawingCanvas();
+            // 화면공유용 판서 도구 정리
+            if (this.isScreenShareDrawing) {
+                this.closeScreenShareDrawing();
+            }
             if (this.drawingBtn) {
                 this.drawingBtn.style.display = 'none';
             }
@@ -1058,13 +1087,16 @@ class EzLive {
 
     async startRecording() {
         try {
-            // 화면 + 오디오 캡처
+            // 모바일 감지
+            const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+            
+            // 화면 + 오디오 캡처 (모바일과 데스크톱 모두 지원)
             const displayStream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    cursor: 'always',
-                    displaySurface: 'monitor'
+                    cursor: isMobile ? undefined : 'always',
+                    displaySurface: isMobile ? undefined : 'monitor'
                 },
-                audio: false
+                audio: isMobile ? true : false // 모바일에서는 시스템 오디오도 캡처 시도
             });
 
             // 마이크 오디오 가져오기
@@ -1924,8 +1956,17 @@ class EzLive {
         if (!this.isDrawing) return;
         
         this.drawingContext.lineTo(x, y);
-        this.drawingContext.strokeStyle = this.isEraser ? '#FFFFFF' : this.drawColor.value;
-        this.drawingContext.lineWidth = this.isEraser ? 20 : this.drawWidth.value;
+        
+        // 지우개: destination-out 모드로 캔버스만 지움 (배경 비디오는 보임)
+        if (this.isEraser) {
+            this.drawingContext.globalCompositeOperation = 'destination-out';
+            this.drawingContext.lineWidth = 30;
+        } else {
+            this.drawingContext.globalCompositeOperation = 'source-over';
+            this.drawingContext.strokeStyle = this.drawColor.value;
+            this.drawingContext.lineWidth = this.drawWidth.value;
+        }
+        
         this.drawingContext.lineCap = 'round';
         this.drawingContext.lineJoin = 'round';
         this.drawingContext.stroke();
@@ -2195,6 +2236,533 @@ class EzLive {
                 mainWindow.app.clearDrawing();
             });
         }, 100);
+    }
+}
+
+    // 화이트보드 토글
+    async toggleWhiteboard() {
+        if (this.isWhiteboardActive) {
+            await this.closeWhiteboard();
+        } else {
+            await this.openWhiteboard();
+        }
+    }
+
+    // 화이트보드 열기
+    async openWhiteboard() {
+        try {
+            // 화이트보드 새창 열기
+            const width = 1200;
+            const height = 800;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+
+            this.whiteboardWindow = window.open(
+                '', 
+                'ezlive_whiteboard', 
+                `width=${width},height=${height},left=${left},top=${top},resizable=yes`
+            );
+
+            this.whiteboardWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>✏️ ezlive 화이트보드</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body {
+                            font-family: 'Segoe UI', sans-serif;
+                            background: #f0f0f0;
+                            overflow: hidden;
+                        }
+                        .toolbar {
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            background: white;
+                            padding: 15px;
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                            display: flex;
+                            align-items: center;
+                            gap: 15px;
+                            z-index: 1000;
+                        }
+                        .tool-group {
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                        }
+                        label {
+                            font-weight: 600;
+                            color: #555;
+                        }
+                        input[type="color"] {
+                            width: 50px;
+                            height: 40px;
+                            border: 2px solid #ddd;
+                            border-radius: 5px;
+                            cursor: pointer;
+                        }
+                        input[type="range"] {
+                            width: 120px;
+                        }
+                        .btn-tool {
+                            padding: 10px 20px;
+                            border: 2px solid #ddd;
+                            background: white;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            transition: all 0.3s;
+                            font-size: 0.9rem;
+                            font-weight: 600;
+                        }
+                        .btn-tool:hover {
+                            background: #f5f5f5;
+                            transform: translateY(-2px);
+                        }
+                        .btn-tool.active {
+                            background: #667eea;
+                            color: white;
+                            border-color: #667eea;
+                        }
+                        .width-value {
+                            font-weight: bold;
+                            color: #667eea;
+                            min-width: 30px;
+                        }
+                        #canvas {
+                            display: block;
+                            cursor: crosshair;
+                            margin-top: 70px;
+                            background: white;
+                            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="toolbar">
+                        <div class="tool-group">
+                            <button id="penBtn" class="btn-tool active">🖊️ 펜</button>
+                            <button id="eraserBtn" class="btn-tool">🧹 지우개</button>
+                            <button id="pointerBtn" class="btn-tool">🔴 포인터</button>
+                        </div>
+                        <div class="tool-group">
+                            <label>색상:</label>
+                            <input type="color" id="drawColor" value="#000000">
+                        </div>
+                        <div class="tool-group">
+                            <label>굵기:</label>
+                            <input type="range" id="drawWidth" min="1" max="20" value="3">
+                            <span class="width-value" id="widthValue">3</span>
+                        </div>
+                        <div class="tool-group">
+                            <button id="clearBtn" class="btn-tool">🗑️ 전체삭제</button>
+                        </div>
+                    </div>
+                    <canvas id="canvas"></canvas>
+                    <script>
+                        const canvas = document.getElementById('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 캔버스 크기 설정
+                        canvas.width = window.innerWidth;
+                        canvas.height = window.innerHeight - 70;
+                        
+                        let isDrawing = false;
+                        let currentTool = 'pen';
+                        let currentColor = '#000000';
+                        let currentWidth = 3;
+                        
+                        // 도구 버튼
+                        const penBtn = document.getElementById('penBtn');
+                        const eraserBtn = document.getElementById('eraserBtn');
+                        const pointerBtn = document.getElementById('pointerBtn');
+                        const clearBtn = document.getElementById('clearBtn');
+                        const drawColor = document.getElementById('drawColor');
+                        const drawWidth = document.getElementById('drawWidth');
+                        const widthValue = document.getElementById('widthValue');
+                        
+                        // 펜 모드
+                        penBtn.addEventListener('click', () => {
+                            currentTool = 'pen';
+                            penBtn.classList.add('active');
+                            eraserBtn.classList.remove('active');
+                            pointerBtn.classList.remove('active');
+                            canvas.style.cursor = 'crosshair';
+                        });
+                        
+                        // 지우개 모드
+                        eraserBtn.addEventListener('click', () => {
+                            currentTool = 'eraser';
+                            penBtn.classList.remove('active');
+                            eraserBtn.classList.add('active');
+                            pointerBtn.classList.remove('active');
+                            canvas.style.cursor = 'pointer';
+                        });
+                        
+                        // 포인터 모드
+                        pointerBtn.addEventListener('click', () => {
+                            currentTool = 'pointer';
+                            penBtn.classList.remove('active');
+                            eraserBtn.classList.remove('active');
+                            pointerBtn.classList.add('active');
+                            canvas.style.cursor = 'none';
+                        });
+                        
+                        // 전체 삭제
+                        clearBtn.addEventListener('click', () => {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        });
+                        
+                        // 색상 변경
+                        drawColor.addEventListener('input', (e) => {
+                            currentColor = e.target.value;
+                        });
+                        
+                        // 굵기 변경
+                        drawWidth.addEventListener('input', (e) => {
+                            currentWidth = e.target.value;
+                            widthValue.textContent = e.target.value;
+                        });
+                        
+                        // 그리기 이벤트
+                        canvas.addEventListener('mousedown', startDrawing);
+                        canvas.addEventListener('mousemove', draw);
+                        canvas.addEventListener('mouseup', stopDrawing);
+                        canvas.addEventListener('mouseout', stopDrawing);
+                        
+                        // 터치 이벤트
+                        canvas.addEventListener('touchstart', (e) => {
+                            e.preventDefault();
+                            const touch = e.touches[0];
+                            const mouseEvent = new MouseEvent('mousedown', {
+                                clientX: touch.clientX,
+                                clientY: touch.clientY
+                            });
+                            canvas.dispatchEvent(mouseEvent);
+                        });
+                        
+                        canvas.addEventListener('touchmove', (e) => {
+                            e.preventDefault();
+                            const touch = e.touches[0];
+                            const mouseEvent = new MouseEvent('mousemove', {
+                                clientX: touch.clientX,
+                                clientY: touch.clientY
+                            });
+                            canvas.dispatchEvent(mouseEvent);
+                        });
+                        
+                        canvas.addEventListener('touchend', (e) => {
+                            e.preventDefault();
+                            const mouseEvent = new MouseEvent('mouseup', {});
+                            canvas.dispatchEvent(mouseEvent);
+                        });
+                        
+                        function startDrawing(e) {
+                            if (currentTool === 'pointer') return;
+                            isDrawing = true;
+                            const rect = canvas.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const y = e.clientY - rect.top;
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                        }
+                        
+                        function draw(e) {
+                            if (currentTool === 'pointer') return;
+                            if (!isDrawing) return;
+                            
+                            const rect = canvas.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const y = e.clientY - rect.top;
+                            
+                            ctx.lineTo(x, y);
+                            ctx.strokeStyle = currentTool === 'eraser' ? '#FFFFFF' : currentColor;
+                            ctx.lineWidth = currentTool === 'eraser' ? 30 : currentWidth;
+                            ctx.lineCap = 'round';
+                            ctx.lineJoin = 'round';
+                            ctx.stroke();
+                        }
+                        
+                        function stopDrawing() {
+                            isDrawing = false;
+                            ctx.beginPath();
+                        }
+                        
+                        // 창 크기 조절
+                        window.addEventListener('resize', () => {
+                            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            canvas.width = window.innerWidth;
+                            canvas.height = window.innerHeight - 70;
+                            ctx.putImageData(imageData, 0, 0);
+                        });
+                    </script>
+                </body>
+                </html>
+            `);
+            
+            this.whiteboardWindow.document.close();
+            
+            // 화이트보드 스트림 캡처 (약간의 지연 후)
+            setTimeout(async () => {
+                try {
+                    // 화이트보드 창을 화면 공유로 캡처
+                    const canvas = this.whiteboardWindow.document.getElementById('canvas');
+                    if (canvas) {
+                        this.whiteboardStream = canvas.captureStream(30); // 30 FPS
+                        
+                        // 스트림을 로컬 비디오로 전환
+                        this.originalStream = this.localStream;
+                        const audioTrack = this.originalStream.getAudioTracks()[0];
+                        const videoTrack = this.whiteboardStream.getVideoTracks()[0];
+                        this.localStream = new MediaStream([videoTrack, audioTrack]);
+                        
+                        this.localVideo.srcObject = this.localStream;
+                        
+                        // 상대방에게 스트림 전송
+                        if (this.call && this.call.peerConnection) {
+                            const sender = this.call.peerConnection.getSenders().find(s => 
+                                s.track && s.track.kind === 'video'
+                            );
+                            if (sender) {
+                                sender.replaceTrack(videoTrack);
+                            }
+                        }
+                        
+                        this.isWhiteboardActive = true;
+                        if (this.whiteboardBtn) {
+                            this.whiteboardBtn.classList.add('active');
+                        }
+                        
+                        // 채팅 알림
+                        const timestamp = new Date().toLocaleTimeString('ko-KR', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                        this.displayMessage(`화이트보드를 시작했습니다.`, 'system', timestamp);
+                    }
+                } catch (error) {
+                    console.error('화이트보드 스트림 캡처 오류:', error);
+                    alert('화이트보드 스트림 캡처에 실패했습니다.');
+                }
+            }, 1000);
+            
+            // 화이트보드 창이 닫히면
+            const checkClosed = setInterval(() => {
+                if (this.whiteboardWindow && this.whiteboardWindow.closed) {
+                    clearInterval(checkClosed);
+                    this.closeWhiteboard();
+                }
+            }, 500);
+            
+        } catch (error) {
+            console.error('화이트보드 열기 오류:', error);
+            alert('화이트보드를 열 수 없습니다.');
+        }
+    }
+
+    // 화이트보드 닫기
+    async closeWhiteboard() {
+        try {
+            // 화이트보드 창 닫기
+            if (this.whiteboardWindow && !this.whiteboardWindow.closed) {
+                this.whiteboardWindow.close();
+            }
+            
+            // 스트림 복원
+            if (this.whiteboardStream) {
+                this.whiteboardStream.getTracks().forEach(track => track.stop());
+            }
+            
+            if (this.originalStream) {
+                this.localStream = this.originalStream;
+                this.localVideo.srcObject = this.localStream;
+                
+                // 상대방에게 스트림 전송
+                if (this.call && this.call.peerConnection) {
+                    const videoTrack = this.originalStream.getVideoTracks()[0];
+                    const sender = this.call.peerConnection.getSenders().find(s => 
+                        s.track && s.track.kind === 'video'
+                    );
+                    if (sender && videoTrack) {
+                        sender.replaceTrack(videoTrack);
+                    }
+                }
+            }
+            
+            this.whiteboardWindow = null;
+            this.whiteboardStream = null;
+            this.isWhiteboardActive = false;
+            this.originalStream = null;
+            
+            if (this.whiteboardBtn) {
+                this.whiteboardBtn.classList.remove('active');
+            }
+            
+            // 채팅 알림
+            const timestamp = new Date().toLocaleTimeString('ko-KR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            this.displayMessage(`화이트보드를 종료했습니다.`, 'system', timestamp);
+            
+        } catch (error) {
+            console.error('화이트보드 닫기 오류:', error);
+        }
+    }
+
+    // 화면공유용 판서 도구 (별도)
+    toggleScreenShareDrawing() {
+        if (this.isScreenShareDrawing) {
+            this.closeScreenShareDrawing();
+        } else {
+            this.openScreenShareDrawing();
+        }
+    }
+
+    openScreenShareDrawing() {
+        if (!this.isScreenSharing) {
+            alert('화면 공유 중에만 사용할 수 있습니다.');
+            return;
+        }
+        
+        // 캔버스가 없으면 생성
+        if (!this.screenShareDrawingCanvas) {
+            this.createScreenShareDrawingCanvas();
+        }
+        
+        // 판서 도구 창 열기
+        this.openDrawingWindow();
+        this.isScreenShareDrawing = true;
+        
+        if (this.drawingBtn) {
+            this.drawingBtn.classList.add('active');
+        }
+    }
+
+    closeScreenShareDrawing() {
+        if (this.screenShareDrawingCanvas) {
+            this.removeScreenShareDrawingCanvas();
+        }
+        
+        if (this.drawingWindow && !this.drawingWindow.closed) {
+            this.drawingWindow.close();
+            this.drawingWindow = null;
+        }
+        
+        this.isScreenShareDrawing = false;
+        
+        if (this.drawingBtn) {
+            this.drawingBtn.classList.remove('active');
+        }
+    }
+
+    createScreenShareDrawingCanvas() {
+        if (!this.localVideoWrapper) return;
+        
+        const canvas = document.createElement('canvas');
+        canvas.className = 'screen-share-drawing-canvas';
+        canvas.id = 'screenShareDrawingCanvas';
+        
+        const video = this.localVideo;
+        canvas.width = video.offsetWidth;
+        canvas.height = video.offsetHeight;
+        
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.zIndex = '100';
+        canvas.style.pointerEvents = 'auto';
+        canvas.style.cursor = 'crosshair';
+        
+        this.localVideoWrapper.style.position = 'relative';
+        this.localVideoWrapper.appendChild(canvas);
+        
+        this.screenShareDrawingCanvas = canvas;
+        this.screenShareDrawingContext = canvas.getContext('2d');
+        
+        // 그리기 이벤트
+        canvas.addEventListener('mousedown', (e) => this.startScreenShareDrawing(e));
+        canvas.addEventListener('mousemove', (e) => this.drawScreenShare(e));
+        canvas.addEventListener('mouseup', () => this.stopScreenShareDrawing());
+        canvas.addEventListener('mouseout', () => this.stopScreenShareDrawing());
+        
+        // 터치 이벤트
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        });
+        
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const mouseEvent = new MouseEvent('mouseup', {});
+            canvas.dispatchEvent(mouseEvent);
+        });
+    }
+
+    removeScreenShareDrawingCanvas() {
+        if (this.screenShareDrawingCanvas && this.screenShareDrawingCanvas.parentNode) {
+            this.screenShareDrawingCanvas.parentNode.removeChild(this.screenShareDrawingCanvas);
+            this.screenShareDrawingCanvas = null;
+            this.screenShareDrawingContext = null;
+        }
+    }
+
+    startScreenShareDrawing(e) {
+        if (this.isPointer) return;
+        this.isDrawing = true;
+        const rect = this.screenShareDrawingCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        this.screenShareDrawingContext.beginPath();
+        this.screenShareDrawingContext.moveTo(x, y);
+    }
+
+    drawScreenShare(e) {
+        if (!this.isDrawing || this.isPointer) return;
+        
+        const rect = this.screenShareDrawingCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.screenShareDrawingContext.lineTo(x, y);
+        // 지우개는 투명색으로 (캔버스만 지움, 배경 비디오는 보임)
+        if (this.isEraser) {
+            this.screenShareDrawingContext.globalCompositeOperation = 'destination-out';
+            this.screenShareDrawingContext.lineWidth = 30;
+        } else {
+            this.screenShareDrawingContext.globalCompositeOperation = 'source-over';
+            this.screenShareDrawingContext.strokeStyle = this.drawColor ? this.drawColor.value : '#ff0000';
+            this.screenShareDrawingContext.lineWidth = this.drawWidth ? this.drawWidth.value : 3;
+        }
+        this.screenShareDrawingContext.lineCap = 'round';
+        this.screenShareDrawingContext.lineJoin = 'round';
+        this.screenShareDrawingContext.stroke();
+    }
+
+    stopScreenShareDrawing() {
+        this.isDrawing = false;
+        if (this.screenShareDrawingContext) {
+            this.screenShareDrawingContext.beginPath();
+        }
     }
 }
 

@@ -105,6 +105,15 @@ header p {
     background: #9C27B0;
 }
 
+.btn-control-bar.btn-whiteboard {
+    background: #9C27B0;
+}
+
+.btn-control-bar.btn-whiteboard.active {
+    background: #7B1FA2;
+    box-shadow: 0 0 15px rgba(156, 39, 176, 0.5);
+}
+
 .btn-control-bar:active {
     transform: translateY(0);
 }
