@@ -36,6 +36,7 @@ class EzLive {
         this.attachEventListeners();
         this.setupChatSync();
         this.checkInvitationLink();
+        this.setupMobileChat();
     }
 
     initializeElements() {
@@ -76,6 +77,7 @@ class EzLive {
 
         // Containers
         this.chatContainer = document.getElementById('chatContainer');
+        this.chatHeader = document.querySelector('.chat-header');
         this.remoteVideoWrapper = document.getElementById('remoteVideoWrapper');
         this.localVideoWrapper = document.getElementById('localVideoWrapper');
         this.mainLayout = document.getElementById('mainLayout');
@@ -395,6 +397,7 @@ class EzLive {
             call.on('stream', (remoteStream) => {
                 console.log('Received remote stream');
                 this.remoteVideo.srcObject = remoteStream;
+                this.playVideoSafely(this.remoteVideo, 'remote');
                 this.showStep(3);
             });
 
@@ -506,6 +509,7 @@ class EzLive {
             });
             
             this.localVideo.srcObject = this.localStream;
+            this.playVideoSafely(this.localVideo, 'local');
             console.log('Got local stream');
             
         } catch (error) {
@@ -919,6 +923,60 @@ class EzLive {
         this.chatContainer.classList.toggle('active');
     }
 
+    setupMobileChat() {
+        // 모바일 환경 감지
+        const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+        
+        if (isMobile && this.chatHeader) {
+            // 채팅 헤더 클릭으로 토글
+            this.chatHeader.addEventListener('click', () => {
+                this.toggleChat();
+            });
+        }
+    }
+
+    // 비디오 안전 재생 (모바일 자동재생 정책 처리)
+    async playVideoSafely(videoElement, label = '') {
+        try {
+            await videoElement.play();
+            console.log(`${label} video playing successfully`);
+        } catch (error) {
+            console.warn(`${label} video autoplay failed:`, error);
+            // 모바일에서는 사용자 제스처가 필요할 수 있음
+            if (error.name === 'NotAllowedError') {
+                // 사용자에게 탭하여 재생하도록 안내
+                const playButton = document.createElement('button');
+                playButton.textContent = '▶ 비디오 재생';
+                playButton.style.cssText = `
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    padding: 15px 30px;
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 1.2rem;
+                    cursor: pointer;
+                    z-index: 100;
+                `;
+                
+                playButton.addEventListener('click', async () => {
+                    try {
+                        await videoElement.play();
+                        playButton.remove();
+                    } catch (err) {
+                        console.error('Manual play failed:', err);
+                    }
+                });
+                
+                videoElement.parentElement.style.position = 'relative';
+                videoElement.parentElement.appendChild(playButton);
+            }
+        }
+    }
+
     async toggleRecording() {
         if (this.isRecording) {
             // 녹화 중지
@@ -1122,8 +1180,17 @@ class EzLive {
             this.isFullscreen = true;
             this.fullscreenTarget = target;
 
-            // 채팅창을 오른쪽에 고정
-            this.chatContainer.classList.add('fullscreen-side');
+            // 모바일 감지
+            const isMobile = window.innerWidth <= 768;
+            
+            if (isMobile) {
+                // 모바일: 채팅창을 하단에 슬라이드업
+                this.chatContainer.classList.add('fullscreen-side');
+                this.chatContainer.classList.remove('active');
+            } else {
+                // 데스크톱: 채팅창을 오른쪽에 고정
+                this.chatContainer.classList.add('fullscreen-side');
+            }
 
             document.addEventListener('keydown', this.handleFullscreenEsc);
         } else {

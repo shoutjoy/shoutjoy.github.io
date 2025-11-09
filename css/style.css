@@ -767,23 +767,30 @@ header p {
 
 @media (max-width: 768px) {
     body {
-        padding: 10px;
+        padding: 5px;
+        align-items: flex-start;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 100%;
     }
 
     header {
-        margin-bottom: 15px;
+        margin-bottom: 10px;
+        padding: 10px;
     }
 
     header h1 {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
 
     header p {
-        font-size: 1rem;
+        font-size: 0.9rem;
     }
     
     .card {
-        padding: 25px;
+        padding: 20px;
     }
     
     .btn {
@@ -791,32 +798,108 @@ header p {
         font-size: 1rem;
     }
 
-    .controls-overlay {
-        top: 10px;
-        left: 10px;
-        padding: 8px;
-        gap: 6px;
+    /* 컨트롤 바 모바일 최적화 */
+    .controls-bar {
+        padding: 8px 5px;
+        gap: 5px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin-bottom: 10px;
     }
 
-    .btn-compact {
-        width: 36px;
-        height: 36px;
-        font-size: 1.1rem;
+    .controls-bar::-webkit-scrollbar {
+        display: none;
     }
 
+    .btn-control-bar {
+        min-width: 60px;
+        padding: 8px 10px;
+        flex-shrink: 0;
+    }
+
+    .btn-control-bar .icon {
+        font-size: 1.2rem;
+    }
+
+    .btn-control-bar .label {
+        font-size: 0.65rem;
+    }
+
+    /* 메인 레이아웃 모바일 */
     .main-layout {
-        height: calc(100vh - 150px);
-        min-height: 500px;
+        flex-direction: column;
+        height: calc(100vh - 180px);
+        min-height: auto;
+        gap: 10px;
+    }
+
+    /* 비디오 컨테이너 세로 배치 */
+    .video-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        grid-template-columns: 1fr;
+        min-height: auto;
+        height: auto;
+    }
+
+    .video-wrapper {
+        width: 100% !important;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        max-height: 40vh;
+    }
+
+    .video-wrapper.local {
+        max-height: 30vh;
     }
 
     .video-wrapper video {
-        min-height: 200px;
+        min-height: auto;
+    }
+
+    /* 비디오 컨트롤 버튼 크기 조정 */
+    .btn-video-control {
+        width: 35px;
+        height: 35px;
+        font-size: 1rem;
+    }
+
+    .video-label {
+        font-size: 0.85rem;
+        padding: 6px 12px;
+    }
+
+    /* 전체화면 모바일 최적화 */
+    .video-wrapper.fullscreen {
+        right: 0;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-height: 100vh;
+    }
+
+    .chat-container.fullscreen-side {
+        width: 100%;
+        height: 40vh;
+        top: auto;
+        bottom: 0;
+        border-radius: 15px 15px 0 0;
+    }
+
+    /* 최대화 모드 모바일 */
+    .video-wrapper.maximized {
+        max-height: 50vh;
     }
 
     .mobile-only {
         display: flex;
     }
 
+    /* 채팅 모바일 슬라이드업 */
     .chat-container {
         position: fixed;
         bottom: 0;
@@ -825,21 +908,152 @@ header p {
         max-height: 70vh;
         border-radius: 15px 15px 0 0;
         z-index: 1000;
-        transform: translateY(100%);
+        transform: translateY(calc(100% - 60px));
         width: 100%;
+        transition: transform 0.3s ease;
     }
 
     .chat-container.active {
         transform: translateY(0);
     }
 
+    .chat-header {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .chat-header::after {
+        content: '👆 탭하여 열기';
+        font-size: 0.8rem;
+        opacity: 0.7;
+        margin-left: 10px;
+    }
+
+    .chat-container.active .chat-header::after {
+        content: '👇 탭하여 닫기';
+    }
+
     .chat-messages {
         max-height: calc(70vh - 140px);
+    }
+
+    /* 판서 도구 모바일 */
+    .drawing-tools {
+        right: 5px;
+        top: auto;
+        bottom: 80px;
+        min-width: 200px;
+        padding: 10px;
+        max-width: calc(100vw - 10px);
+    }
+
+    .drawing-tools-body {
+        gap: 8px;
+    }
+
+    .drawing-tools-body input[type="color"] {
+        height: 35px;
+    }
+
+    /* 모달 모바일 */
+    .modal-content {
+        max-width: 90%;
+        padding: 25px;
+    }
+
+    .modal-content h3 {
+        font-size: 1.3rem;
+    }
+
+    .modal-content p {
+        font-size: 1rem;
+    }
+
+    .modal-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .modal-buttons .btn {
+        width: 100%;
     }
 }
 
 @media (max-width: 480px) {
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    header p {
+        font-size: 0.85rem;
+    }
+
+    .controls-bar {
+        padding: 5px 3px;
+        gap: 3px;
+    }
+
+    .btn-control-bar {
+        min-width: 50px;
+        padding: 6px 8px;
+    }
+
+    .btn-control-bar .icon {
+        font-size: 1rem;
+    }
+
+    .btn-control-bar .label {
+        font-size: 0.6rem;
+    }
+
+    .video-wrapper {
+        max-height: 35vh;
+    }
+
+    .video-wrapper.local {
+        max-height: 25vh;
+    }
+
+    .btn-video-control {
+        width: 30px;
+        height: 30px;
+        font-size: 0.9rem;
+    }
+
+    .video-label {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+    }
+
     .chat-input {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    .btn-file {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+
+    .btn-send {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+
+    .drawing-tools {
+        min-width: 180px;
+        padding: 8px;
+        bottom: 70px;
+    }
+
+    .drawing-tools-header {
+        font-size: 0.95rem;
+    }
+
+    .card {
+        padding: 15px;
+    }
+
+    .input {
         font-size: 16px; /* Prevents zoom on iOS */
     }
 }
