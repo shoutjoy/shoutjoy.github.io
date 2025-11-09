@@ -5,6 +5,132 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ezlive - P2P 화상 강의</title>
     <link rel="stylesheet" href="css/style.css">
+    
+    <!-- 카카오톡/인앱 브라우저 감지 및 외부 브라우저 열기 -->
+    <script>
+        (function() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const currentUrl = window.location.href;
+            
+            // 카카오톡 인앱 브라우저 감지
+            const isKakaoTalk = userAgent.indexOf('kakaotalk') > -1;
+            
+            // 네이버 인앱 브라우저 감지
+            const isNaver = userAgent.indexOf('naver') > -1;
+            
+            // 페이스북 인앱 브라우저 감지
+            const isFacebook = userAgent.indexOf('fban') > -1 || userAgent.indexOf('fbav') > -1;
+            
+            // 인스타그램 인앱 브라우저 감지
+            const isInstagram = userAgent.indexOf('instagram') > -1;
+            
+            // 라인 인앱 브라우저 감지
+            const isLine = userAgent.indexOf('line') > -1;
+            
+            // 기타 인앱 브라우저
+            const isInAppBrowser = isKakaoTalk || isNaver || isFacebook || isInstagram || isLine;
+            
+            if (isInAppBrowser) {
+                // 모바일 환경인지 확인
+                const isMobile = /android|iphone|ipad|ipod/i.test(userAgent);
+                
+                if (isMobile) {
+                    // iOS인 경우
+                    if (/iphone|ipad|ipod/i.test(userAgent)) {
+                        // iOS는 intent 스킴이 없으므로 안내 페이지 표시
+                        showOpenInBrowserGuide('iOS');
+                    } 
+                    // Android인 경우
+                    else if (/android/i.test(userAgent)) {
+                        // Android Chrome으로 열기 시도
+                        const intentUrl = 'intent://' + currentUrl.replace(/https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+                        window.location.href = intentUrl;
+                        
+                        // 1초 후에도 페이지가 그대로면 안내 표시
+                        setTimeout(function() {
+                            showOpenInBrowserGuide('Android');
+                        }, 1000);
+                    }
+                } else {
+                    // 데스크톱 환경
+                    showOpenInBrowserGuide('Desktop');
+                }
+            }
+            
+            function showOpenInBrowserGuide(platform) {
+                // 기존 컨텐츠 숨기기
+                document.addEventListener('DOMContentLoaded', function() {
+                    const container = document.querySelector('.container');
+                    if (container) {
+                        container.style.display = 'none';
+                    }
+                    
+                    // 안내 페이지 생성
+                    const guideDiv = document.createElement('div');
+                    guideDiv.id = 'inAppBrowserGuide';
+                    guideDiv.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 999999;';
+                    
+                    let guideContent = '';
+                    
+                    if (platform === 'iOS') {
+                        guideContent = `
+                            <div style="background: white; padding: 40px; border-radius: 20px; max-width: 90%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                                <h2 style="color: #667eea; margin-bottom: 20px; font-size: 1.8rem;">🔗 외부 브라우저에서 열기</h2>
+                                <p style="color: #666; margin-bottom: 30px; line-height: 1.6;">
+                                    카메라와 마이크를 사용하려면<br>
+                                    Safari 브라우저에서 열어주세요!
+                                </p>
+                                <div style="background: #f5f5f5; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: left;">
+                                    <p style="font-weight: 600; margin-bottom: 10px; color: #333;">📱 iOS 사용 방법:</p>
+                                    <ol style="padding-left: 20px; color: #666; line-height: 2;">
+                                        <li>우측 하단 <strong>공유</strong> 버튼 (↗️) 클릭</li>
+                                        <li><strong>Safari에서 열기</strong> 선택</li>
+                                    </ol>
+                                </div>
+                                <p style="font-size: 0.9rem; color: #999;">또는 주소를 복사하여 Safari에 직접 붙여넣으세요</p>
+                            </div>
+                        `;
+                    } else if (platform === 'Android') {
+                        guideContent = `
+                            <div style="background: white; padding: 40px; border-radius: 20px; max-width: 90%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                                <h2 style="color: #667eea; margin-bottom: 20px; font-size: 1.8rem;">🔗 외부 브라우저에서 열기</h2>
+                                <p style="color: #666; margin-bottom: 30px; line-height: 1.6;">
+                                    카메라와 마이크를 사용하려면<br>
+                                    Chrome 브라우저에서 열어주세요!
+                                </p>
+                                <div style="background: #f5f5f5; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: left;">
+                                    <p style="font-weight: 600; margin-bottom: 10px; color: #333;">📱 Android 사용 방법:</p>
+                                    <ol style="padding-left: 20px; color: #666; line-height: 2;">
+                                        <li>우측 상단 <strong>⋮</strong> (더보기) 클릭</li>
+                                        <li><strong>다른 브라우저에서 열기</strong> 선택</li>
+                                        <li><strong>Chrome</strong> 선택</li>
+                                    </ol>
+                                </div>
+                                <button onclick="navigator.clipboard.writeText('${currentUrl}').then(() => alert('링크가 복사되었습니다! Chrome에 붙여넣으세요.'))" 
+                                        style="background: #667eea; color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1rem; cursor: pointer; margin-top: 10px;">
+                                    📋 링크 복사하기
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        guideContent = `
+                            <div style="background: white; padding: 40px; border-radius: 20px; max-width: 90%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                                <h2 style="color: #667eea; margin-bottom: 20px; font-size: 1.8rem;">🔗 외부 브라우저에서 열기</h2>
+                                <p style="color: #666; margin-bottom: 30px; line-height: 1.6;">
+                                    원활한 사용을 위해<br>
+                                    기본 브라우저에서 열어주세요!
+                                </p>
+                                <p style="font-size: 0.9rem; color: #999;">더보기 메뉴에서 "외부 브라우저에서 열기"를 선택하세요</p>
+                            </div>
+                        `;
+                    }
+                    
+                    guideDiv.innerHTML = guideContent;
+                    document.body.appendChild(guideDiv);
+                });
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="container">
@@ -87,8 +213,19 @@
                         <strong>강의 코드:</strong>
                         <div id="myPeerId" class="peer-id"></div>
                     </div>
-                    <button id="copyBtn" class="btn btn-copy">📋 복사하기</button>
+                    <button id="copyBtn" class="btn btn-copy">📋 코드 복사</button>
                 </div>
+
+                <div class="divider">또는</div>
+
+                <div class="share-box invitation-box">
+                    <div class="peer-id-display">
+                        <strong>🔗 초대 링크:</strong>
+                        <div id="invitationLink" class="invitation-link"></div>
+                    </div>
+                    <button id="copyInvitationBtn" class="btn btn-copy">🔗 링크 복사</button>
+                </div>
+                <p class="invitation-note">💡 초대 링크를 사용하면 학생이 이름만 입력하고 바로 참여할 수 있습니다!</p>
 
                 <div class="status-box">
                     <div id="connectionStatus">학생의 접속을 기다리는 중...</div>

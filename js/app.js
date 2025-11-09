@@ -30,10 +30,12 @@ class EzLive {
         this.mediaRecorder = null;
         this.recordedChunks = [];
         this.isRecording = false;
+        this.invitationCode = null;
         
         this.initializeElements();
         this.attachEventListeners();
         this.setupChatSync();
+        this.checkInvitationLink();
     }
 
     initializeElements() {
@@ -84,6 +86,8 @@ class EzLive {
 
         // Display elements
         this.myPeerIdDisplay = document.getElementById('myPeerId');
+        this.invitationLinkDisplay = document.getElementById('invitationLink');
+        this.copyInvitationBtn = document.getElementById('copyInvitationBtn');
         this.connectionStatus = document.getElementById('connectionStatus');
         this.chatMessages = document.getElementById('chatMessages');
         this.localVideo = document.getElementById('localVideo');
@@ -149,6 +153,7 @@ class EzLive {
         if (this.cancelEndBtn) this.cancelEndBtn.addEventListener('click', () => this.cancelEnd());
         if (this.recordBtn) this.recordBtn.addEventListener('click', () => this.toggleRecording());
         if (this.recordFolderBtn) this.recordFolderBtn.addEventListener('click', () => this.openRecordFolder());
+        if (this.copyInvitationBtn) this.copyInvitationBtn.addEventListener('click', () => this.copyInvitationLink());
         
         // Drawing tools
         if (this.drawWidth) this.drawWidth.addEventListener('input', (e) => {
@@ -178,6 +183,92 @@ class EzLive {
                 this.step3.classList.add('active');
                 this.controlsBar.style.display = 'flex';
                 break;
+        }
+    }
+
+    checkInvitationLink() {
+        // URL에서 invitation-code 파라미터 확인
+        const urlParams = new URLSearchParams(window.location.search);
+        const invitationCode = urlParams.get('invitation-code');
+        
+        if (invitationCode) {
+            this.invitationCode = invitationCode;
+            this.showStudentJoinUI();
+        }
+    }
+
+    showStudentJoinUI() {
+        // Step 1의 내용을 학생 전용으로 변경
+        if (this.step1) {
+            this.step1.innerHTML = `
+                <div class="card">
+                    <h2>🎓 강의 참여</h2>
+                    <p>초대링크를 통해 접속하셨습니다.</p>
+                    <p class="invitation-info">강의 코드: <strong>${this.invitationCode}</strong></p>
+                    <input type="text" id="studentNameQuick" placeholder="학생 이름 입력" class="input">
+                    <button id="joinQuickBtn" class="btn btn-primary">강의 참여</button>
+                </div>
+            `;
+            
+            // 새로운 요소들 참조
+            const studentNameQuick = document.getElementById('studentNameQuick');
+            const joinQuickBtn = document.getElementById('joinQuickBtn');
+            
+            if (joinQuickBtn) {
+                joinQuickBtn.addEventListener('click', () => this.quickJoin());
+            }
+            
+            if (studentNameQuick) {
+                studentNameQuick.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.quickJoin();
+                });
+            }
+        }
+    }
+
+    async quickJoin() {
+        const studentNameQuick = document.getElementById('studentNameQuick');
+        const name = studentNameQuick ? studentNameQuick.value.trim() : '';
+        
+        if (!name) {
+            alert('학생 이름을 입력해주세요.');
+            return;
+        }
+        
+        if (!this.invitationCode) {
+            alert('초대 코드가 없습니다.');
+            return;
+        }
+
+        try {
+            this.isHost = false;
+            this.myName = name;
+
+            // Create a new Peer
+            this.peer = new Peer({
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
+
+            this.peer.on('open', (id) => {
+                console.log('My peer ID is: ' + id);
+                this.connectToPeer(this.invitationCode);
+            });
+
+            this.peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                alert('연결 오류가 발생했습니다: ' + err.message);
+            });
+
+            this.setupPeerListeners();
+
+        } catch (error) {
+            console.error('Error joining:', error);
+            alert('참여 중 오류가 발생했습니다.');
         }
     }
 
@@ -213,6 +304,10 @@ class EzLive {
             this.peer.on('open', (id) => {
                 console.log('My peer ID is: ' + id);
                 this.myPeerIdDisplay.textContent = id;
+                
+                // 초대링크 생성 및 표시
+                this.generateInvitationLink(id);
+                
                 this.showStep(2);
                 this.setupPeerListeners();
             });
@@ -439,7 +534,30 @@ class EzLive {
         navigator.clipboard.writeText(peerId).then(() => {
             this.copyBtn.textContent = '✅ 복사됨!';
             setTimeout(() => {
-                this.copyBtn.textContent = '📋 복사하기';
+                this.copyBtn.textContent = '📋 코드 복사';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            alert('복사에 실패했습니다.');
+        });
+    }
+
+    generateInvitationLink(peerId) {
+        // 현재 URL에 invitation-code 파라미터 추가
+        const baseUrl = window.location.origin + window.location.pathname;
+        const invitationLink = `${baseUrl}?invitation-code=${peerId}`;
+        
+        if (this.invitationLinkDisplay) {
+            this.invitationLinkDisplay.textContent = invitationLink;
+        }
+    }
+
+    copyInvitationLink() {
+        const invitationLink = this.invitationLinkDisplay.textContent;
+        navigator.clipboard.writeText(invitationLink).then(() => {
+            this.copyInvitationBtn.textContent = '✅ 복사됨!';
+            setTimeout(() => {
+                this.copyInvitationBtn.textContent = '🔗 링크 복사';
             }, 2000);
         }).catch(err => {
             console.error('Failed to copy:', err);

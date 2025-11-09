@@ -323,6 +323,44 @@ header p {
     border: 2px dashed #667eea;
 }
 
+.invitation-box {
+    margin-top: 20px;
+}
+
+.invitation-link {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #4CAF50;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 10px;
+    word-break: break-all;
+    border: 2px solid #4CAF50;
+    font-family: monospace;
+}
+
+.invitation-note {
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: #666;
+    text-align: center;
+    font-style: italic;
+}
+
+.invitation-info {
+    background: #e8f5e9;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    border-left: 4px solid #4CAF50;
+}
+
+.invitation-info strong {
+    color: #2e7d32;
+    font-size: 1.2rem;
+}
+
 .status-box {
     margin-top: 25px;
     padding: 20px;
