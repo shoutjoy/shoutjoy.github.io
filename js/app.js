@@ -132,6 +132,7 @@ class EzLive {
         this.closeDrawingBtn = document.getElementById('closeDrawingBtn');
         this.drawingBtn = document.getElementById('drawingBtn');
         this.whiteboardBtn = document.getElementById('whiteboardBtn');
+        this.screenShareDrawingBtn = document.getElementById('screenShareDrawingBtn');
     }
 
     attachEventListeners() {
@@ -182,6 +183,7 @@ class EzLive {
         if (this.closeDrawingBtn) this.closeDrawingBtn.addEventListener('click', () => this.closeDrawingTools());
         if (this.drawingBtn) this.drawingBtn.addEventListener('click', () => this.openDrawingWindow());
         if (this.whiteboardBtn) this.whiteboardBtn.addEventListener('click', () => this.toggleWhiteboard());
+        if (this.screenShareDrawingBtn) this.screenShareDrawingBtn.addEventListener('click', () => this.toggleScreenShareDrawing());
     }
 
     loadTeacherInfo() {
@@ -832,20 +834,9 @@ class EzLive {
                 });
             }
 
-            // 화면공유용 판서 버튼 표시
-            if (this.drawingBtn) {
-                this.drawingBtn.style.display = 'flex';
-            }
-            
-            // 버튼 이벤트를 화면공유용으로 변경
-            if (this.drawingBtn) {
-                // 기존 이벤트 제거
-                const newDrawingBtn = this.drawingBtn.cloneNode(true);
-                this.drawingBtn.parentNode.replaceChild(newDrawingBtn, this.drawingBtn);
-                this.drawingBtn = newDrawingBtn;
-                
-                // 화면공유용 판서 이벤트 추가
-                this.drawingBtn.addEventListener('click', () => this.toggleScreenShareDrawing());
+            // 채팅창에 화면공유용 판서 버튼 표시
+            if (this.screenShareDrawingBtn) {
+                this.screenShareDrawingBtn.style.display = 'inline-block';
             }
 
             screenVideoTrack.onended = () => {
@@ -911,9 +902,12 @@ class EzLive {
             if (this.isScreenShareDrawing) {
                 this.closeScreenShareDrawing();
             }
-            if (this.drawingBtn) {
-                this.drawingBtn.style.display = 'none';
+            
+            // 채팅창의 판서 버튼 숨기기
+            if (this.screenShareDrawingBtn) {
+                this.screenShareDrawingBtn.style.display = 'none';
             }
+            
             if (this.drawingWindow && !this.drawingWindow.closed) {
                 this.drawingWindow.close();
                 this.drawingWindow = null;
@@ -1800,8 +1794,21 @@ class EzLive {
 
     handleCallEnd() {
         alert('상대방이 통화를 종료했습니다.');
-        this.cleanup();
-        location.reload();
+        
+        // 교사일 경우 Step 2로 돌아가서 다음 학생 대기
+        if (this.isHost) {
+            // 통화만 정리하고 Peer는 유지
+            this.cleanupCall();
+            this.showStep(2);
+            this.connectionStatus.textContent = '학생의 접속을 기다리는 중...';
+            this.connectionStatus.parentElement.style.background = '#fff3cd';
+            this.connectionStatus.parentElement.style.borderColor = '#ffc107';
+            this.connectionStatus.style.color = '#856404';
+        } else {
+            // 학생일 경우 페이지 새로고침
+            this.cleanup();
+            location.reload();
+        }
     }
 
     cleanup() {
@@ -1828,6 +1835,42 @@ class EzLive {
         if (this.peer) {
             this.peer.destroy();
         }
+    }
+
+    // 통화만 정리 (교사가 다음 학생을 기다릴 때)
+    cleanupCall() {
+        if (this.isScreenSharing) {
+            this.stopScreenShare();
+        }
+
+        if (this.isWhiteboardActive) {
+            this.closeWhiteboard();
+        }
+
+        // 비디오 중지 (카메라는 계속 사용)
+        if (this.remoteVideo) {
+            this.remoteVideo.srcObject = null;
+        }
+
+        // 통화와 연결만 닫기 (Peer는 유지)
+        if (this.call) {
+            this.call.close();
+            this.call = null;
+        }
+
+        if (this.connection) {
+            this.connection.close();
+            this.connection = null;
+        }
+
+        // 채팅 기록 초기화
+        this.chatHistory = [];
+        if (this.chatMessages) {
+            this.chatMessages.innerHTML = '';
+        }
+
+        // 상대방 이름 초기화
+        this.remoteName = '';
     }
 
     // 판서 도구 관련 함수들
@@ -2636,8 +2679,12 @@ class EzLive {
         this.openDrawingWindow();
         this.isScreenShareDrawing = true;
         
+        // 버튼 active 상태 추가
         if (this.drawingBtn) {
             this.drawingBtn.classList.add('active');
+        }
+        if (this.screenShareDrawingBtn) {
+            this.screenShareDrawingBtn.classList.add('active');
         }
     }
 
@@ -2653,8 +2700,12 @@ class EzLive {
         
         this.isScreenShareDrawing = false;
         
+        // 버튼 active 상태 제거
         if (this.drawingBtn) {
             this.drawingBtn.classList.remove('active');
+        }
+        if (this.screenShareDrawingBtn) {
+            this.screenShareDrawingBtn.classList.remove('active');
         }
     }
 
