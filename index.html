@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ezlive - P2P 화상 강의</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎥 ezlive</h1>
+            <p>P2P 화상 채팅 애플리케이션</p>
+        </header>
+
+        <!-- 컨트롤 바 (헤더 아래 배치, step3에서만 표시) -->
+        <div id="controlsBar" class="controls-bar" style="display: none;">
+            <button id="toggleVideoBtn" class="btn-control-bar" title="비디오 끄기/켜기">
+                <span class="icon">📹</span>
+                <span class="label">비디오</span>
+            </button>
+            <button id="toggleAudioBtn" class="btn-control-bar" title="마이크 끄기/켜기">
+                <span class="icon">🎤</span>
+                <span class="label">마이크</span>
+            </button>
+            <button id="shareScreenBtn" class="btn-control-bar" title="화면 공유">
+                <span class="icon">🖥️</span>
+                <span class="label">화면공유</span>
+            </button>
+            <button id="toggleChatViewBtn" class="btn-control-bar" title="채팅창 열기/닫기">
+                <span class="icon">💬</span>
+                <span class="label">채팅창</span>
+            </button>
+            <button id="downloadChatBtn" class="btn-control-bar" title="채팅 기록 다운로드">
+                <span class="icon">💾</span>
+                <span class="label">채팅저장</span>
+            </button>
+            <button id="lmsBtn" class="btn-control-bar btn-lms" title="LMS 바로가기">
+                <span class="icon">🎓</span>
+                <span class="label">LMS</span>
+            </button>
+            <button id="replayBtn" class="btn-control-bar btn-replay" title="다시보기">
+                <span class="icon">🔄</span>
+                <span class="label">다시보기</span>
+            </button>
+            <button id="recordBtn" class="btn-control-bar btn-record" title="녹화 시작/중지">
+                <span class="icon">⏺️</span>
+                <span class="label">녹화</span>
+            </button>
+            <button id="recordFolderBtn" class="btn-control-bar btn-folder" title="녹화 폴더 열기">
+                <span class="icon">📁</span>
+                <span class="label">녹화폴더</span>
+            </button>
+            <button id="endCallBtn" class="btn-control-bar btn-danger" title="통화 종료">
+                <span class="icon">❌</span>
+                <span class="label">종료</span>
+            </button>
+        </div>
+
+        <!-- Step 1: 서버 생성 -->
+        <div id="step1" class="step active">
+            <div class="card">
+                <h2>🏫 교사용 화상강의 생성</h2>
+                <p>강의를 생성하고 학생들을 초대하세요.</p>
+                <input type="text" id="teacherName" placeholder="교사 이름 입력" class="input">
+                <input type="password" id="teacherPassword" placeholder="교사 비밀번호 입력" class="input">
+                <button id="createHostBtn" class="btn btn-primary">강의 생성</button>
+                
+                <div class="divider">또는</div>
+                
+                <h2>🎓 학생용 강의참여</h2>
+                <p>교사가 공유한 강의 코드를 입력하세요.</p>
+                <input type="text" id="studentName" placeholder="학생 이름 입력" class="input">
+                <input type="text" id="joinPeerId" placeholder="강의 코드 입력" class="input">
+                <button id="joinBtn" class="btn btn-secondary">강의 참여</button>
+            </div>
+        </div>
+
+        <!-- Step 2: 서버 주소 공유 -->
+        <div id="step2" class="step">
+            <div class="card">
+                <h2>2️⃣ 강의 코드 공유하기</h2>
+                <p>아래 코드를 학생들에게 공유하세요.</p>
+                
+                <div class="share-box">
+                    <div class="peer-id-display">
+                        <strong>강의 코드:</strong>
+                        <div id="myPeerId" class="peer-id"></div>
+                    </div>
+                    <button id="copyBtn" class="btn btn-copy">📋 복사하기</button>
+                </div>
+
+                <div class="status-box">
+                    <div id="connectionStatus">학생의 접속을 기다리는 중...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: 화상 채팅 -->
+        <div id="step3" class="step">
+            <div class="main-layout" id="mainLayout">
+                <div class="video-container" id="videoContainer">
+                    <div class="video-wrapper" id="remoteVideoWrapper">
+                        <video id="remoteVideo" autoplay playsinline></video>
+                        <div class="video-label">상대방</div>
+                        <div class="video-controls">
+                            <button id="remotePipBtn" class="btn-video-control" title="PIP 모드">
+                                <span class="icon">🖼️</span>
+                            </button>
+                            <button id="remoteMaximizeBtn" class="btn-video-control" title="최대화/최소화">
+                                <span class="icon">⤢</span>
+                            </button>
+                            <button id="fullscreenBtn" class="btn-video-control" title="전체화면">
+                                <span class="icon">⛶️</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="video-wrapper local" id="localVideoWrapper">
+                        <video id="localVideo" autoplay playsinline muted></video>
+                        <div class="video-label">나</div>
+                        <div class="video-controls">
+                            <button id="localPipBtn" class="btn-video-control" title="내 화면 PIP">
+                                <span class="icon">🖼️</span>
+                            </button>
+                            <button id="localMaximizeBtn" class="btn-video-control" title="최대화/최소화">
+                                <span class="icon">⤢</span>
+                            </button>
+                            <button id="localFullscreenBtn" class="btn-video-control" title="전체화면">
+                                <span class="icon">⛶️</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-container" id="chatContainer">
+                    <div class="chat-header">
+                        <h3>💬 채팅</h3>
+                        <div class="chat-header-actions">
+                            <button id="fullscreenChatBtn" class="btn-icon" title="채팅 전체화면">⛶️</button>
+                            <button id="popoutChatBtn" class="btn-icon" title="새창으로 열기">🗗️</button>
+                            <button id="closeChatBtn" class="btn-close mobile-only">✕</button>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="file" id="fileInput" style="display: none;">
+                        <button id="fileBtn" class="btn btn-file" title="파일 전송">파일전송</button>
+                        <input type="text" id="chatInput" placeholder="메시지를 입력하세요..." class="chat-input">
+                        <button id="sendBtn" class="btn btn-send">전송</button>
+                    </div>
+                    <div id="chatMessages" class="chat-messages"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 화면공유 승인 요청 모달 -->
+    <div id="screenShareRequestModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>📢 화면공유 요청</h3>
+            <p id="requestMessage">학생이 화면공유를 요청했습니다.</p>
+            <div class="modal-buttons">
+                <button id="approveScreenShareBtn" class="btn btn-approve">✅ 승인</button>
+                <button id="rejectScreenShareBtn" class="btn btn-reject">❌ 거부</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 종료 시 채팅 저장 확인 모달 -->
+    <div id="endCallModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>📞 통화 종료</h3>
+            <p>채팅 기록을 저장하시겠습니까?</p>
+            <div class="modal-buttons">
+                <button id="saveChatAndEndBtn" class="btn btn-approve">💾 저장하고 종료</button>
+                <button id="endWithoutSaveBtn" class="btn btn-secondary">종료만</button>
+                <button id="cancelEndBtn" class="btn btn-reject">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 판서 도구 (화면공유 중에만 표시) -->
+    <div id="drawingTools" class="drawing-tools" style="display: none;">
+        <div class="drawing-tools-header">
+            <span>🖊️ 판서 도구</span>
+            <button id="closeDrawingBtn" class="btn-close-drawing">✕</button>
+        </div>
+        <div class="drawing-tools-body">
+            <label>색상:</label>
+            <input type="color" id="drawColor" value="#ff0000">
+            
+            <label>굵기:</label>
+            <input type="range" id="drawWidth" min="1" max="20" value="3">
+            <span id="widthValue">3</span>
+            
+            <button id="eraserBtn" class="btn-tool">🧹 지우개</button>
+            <button id="clearDrawingBtn" class="btn-tool">🗑️ 전체삭제</button>
+            <button id="penBtn" class="btn-tool active">🖊️ 펜</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
