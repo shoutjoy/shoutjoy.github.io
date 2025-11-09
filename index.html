@@ -193,30 +193,31 @@
                 <h2>🏫 교사용 화상강의 생성</h2>
                 <p>강의를 생성하고 학생들을 초대하세요.</p>
                 <input type="text" id="teacherName" placeholder="교사 이름 입력" class="input">
-                <input type="password" id="teacherPassword" placeholder="교사 비밀번호 입력" class="input">
-                <input type="text" id="teacherClassCode" placeholder="강의 코드 입력 (비워두면 자동생성)" class="input">
-                <p class="hint">💡 강의 코드를 비워두면 랜덤으로 자동 생성됩니다</p>
-                <button id="createHostBtn" class="btn btn-primary">강의 생성</button>
+                <input type="password" id="teacherPassword" value="1234" placeholder="회의실 비밀번호" class="input">
+                <input type="text" id="teacherClassCode" value="class01" placeholder="회의실 코드 입력" class="input">
+                <p class="hint">💡 회의실 코드와 비밀번호를 변경하거나 그대로 사용하세요</p>
+                <button id="createHostBtn" class="btn btn-primary">회의실 생성</button>
                 
                 <div class="divider">또는</div>
                 
-                <h2>🎓 학생용 강의참여</h2>
-                <p>교사가 공유한 강의 코드를 입력하세요.</p>
+                <h2>🎓 학생용 회의실 참여</h2>
+                <p>교사가 공유한 회의실 코드와 비밀번호를 입력하세요.</p>
                 <input type="text" id="studentName" placeholder="학생 이름 입력" class="input">
-                <input type="text" id="joinPeerId" placeholder="강의 코드 입력" class="input">
-                <button id="joinBtn" class="btn btn-secondary">강의 참여</button>
+                <input type="text" id="joinPeerId" placeholder="회의실 코드 입력" class="input">
+                <input type="password" id="studentPassword" placeholder="회의실 비밀번호 입력" class="input">
+                <button id="joinBtn" class="btn btn-secondary">회의실 참여</button>
             </div>
         </div>
 
         <!-- Step 2: 서버 주소 공유 -->
         <div id="step2" class="step">
             <div class="card">
-                <h2>2️⃣ 강의 코드 공유하기</h2>
+                <h2>2️⃣ 회의실 코드 공유하기</h2>
                 <p>아래 코드를 학생들에게 공유하세요.</p>
                 
                 <div class="share-box">
                     <div class="peer-id-display">
-                        <strong>강의 코드:</strong>
+                        <strong>회의실 코드:</strong>
                         <div id="myPeerId" class="peer-id"></div>
                     </div>
                     <button id="copyBtn" class="btn btn-copy">📋 코드 복사</button>
@@ -247,6 +248,9 @@
                         <video id="remoteVideo" autoplay playsinline></video>
                         <div class="video-label">상대방</div>
                         <div class="video-controls">
+                            <button id="remoteCaptureBtn" class="btn-video-control" title="화면 캡쳐">
+                                <span class="icon">📸</span>
+                            </button>
                             <button id="remotePipBtn" class="btn-video-control" title="PIP 모드">
                                 <span class="icon">🖼️</span>
                             </button>
@@ -262,13 +266,16 @@
                         <video id="localVideo" autoplay playsinline muted></video>
                         <div class="video-label">나</div>
                         <div class="video-controls">
+                            <button id="localCaptureBtn" class="btn-video-control" title="화면 캡쳐">
+                                <span class="icon">📸</span>
+                            </button>
                             <button id="localPipBtn" class="btn-video-control" title="내 화면 PIP">
                                 <span class="icon">🖼️</span>
                             </button>
                             <button id="localMaximizeBtn" class="btn-video-control" title="최대화/최소화">
                                 <span class="icon">⤢</span>
                             </button>
-                            <button id="localFullscreenBtn" class="btn-video-control" title="전체화면">
+                            <button id="localFullscreenBtn" class="btn-video-control" title="전체화메">
                                 <span class="icon">⛶️</span>
                             </button>
                         </div>

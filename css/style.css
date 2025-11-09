@@ -823,34 +823,34 @@ header p {
         font-size: 1rem;
     }
 
-    /* 컨트롤 바 모바일 최적화 */
+    /* 컨트롤 바 모바일 최적화 - 그리드 레이아웃 */
     .controls-bar {
-        padding: 8px 5px;
-        gap: 5px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        flex-wrap: nowrap;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        padding: 10px;
         margin-bottom: 10px;
-    }
-
-    .controls-bar::-webkit-scrollbar {
-        display: none;
+        justify-content: unset;
+        overflow-x: visible;
+        overflow-y: visible;
     }
 
     .btn-control-bar {
-        min-width: 60px;
-        padding: 8px 10px;
-        flex-shrink: 0;
+        min-width: unset;
+        width: 100%;
+        padding: 10px 5px;
+        flex-shrink: unset;
     }
 
     .btn-control-bar .icon {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
     }
 
     .btn-control-bar .label {
         font-size: 0.65rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     /* 메인 레이아웃 모바일 */

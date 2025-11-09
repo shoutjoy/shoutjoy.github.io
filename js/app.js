@@ -78,8 +78,10 @@ class EzLive {
         this.fileInput = document.getElementById('fileInput');
         this.teacherPassword = document.getElementById('teacherPassword');
         this.teacherName = document.getElementById('teacherName');
+        this.teacherPassword = document.getElementById('teacherPassword');
         this.teacherClassCode = document.getElementById('teacherClassCode');
         this.studentName = document.getElementById('studentName');
+        this.studentPassword = document.getElementById('studentPassword');
         this.endCallBtn = document.getElementById('endCallBtn');
         this.lmsBtn = document.getElementById('lmsBtn');
         this.replayBtn = document.getElementById('replayBtn');
@@ -151,6 +153,10 @@ class EzLive {
         if (this.downloadChatBtn) this.downloadChatBtn.addEventListener('click', () => this.downloadChatHistory());
         if (this.fullscreenBtn) this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen('remote'));
         if (this.localFullscreenBtn) this.localFullscreenBtn.addEventListener('click', () => this.toggleFullscreen('local'));
+        this.remoteCaptureBtn = document.getElementById('remoteCaptureBtn');
+        this.localCaptureBtn = document.getElementById('localCaptureBtn');
+        if (this.remoteCaptureBtn) this.remoteCaptureBtn.addEventListener('click', () => this.captureVideo('remote'));
+        if (this.localCaptureBtn) this.localCaptureBtn.addEventListener('click', () => this.captureVideo('local'));
         if (this.remotePipBtn) this.remotePipBtn.addEventListener('click', () => this.togglePIP('remote'));
         if (this.localPipBtn) this.localPipBtn.addEventListener('click', () => this.togglePIP('local'));
         if (this.remoteMaximizeBtn) this.remoteMaximizeBtn.addEventListener('click', () => this.toggleMaximize('remote'));
@@ -335,19 +341,22 @@ class EzLive {
             return;
         }
         
-        // 교사 비밀번호 확인 (클라이언트 측 검증)
+        // 회의실 비밀번호 확인
         const password = this.teacherPassword.value.trim();
-        if (password !== 'a123456!') {
-            alert('교사 비밀번호가 올바르지 않습니다.');
+        if (!password) {
+            alert('회의실 비밀번호를 입력해주세요.');
             return;
         }
 
-        // 강의 코드 확인 (비어있으면 자동 생성)
+        // 회의실 코드 확인
         let classCode = this.teacherClassCode.value.trim();
         if (!classCode) {
-            classCode = this.generateRandomClassCode();
-            this.teacherClassCode.value = classCode;
+            alert('회의실 코드를 입력해주세요.');
+            return;
         }
+        
+        // 비밀번호 저장 (나중에 학생 검증용)
+        this.roomPassword = password;
 
         try {
             this.isHost = true;
@@ -399,6 +408,7 @@ class EzLive {
     async joinPeer() {
         const name = this.studentName.value.trim();
         const remotePeerId = this.joinPeerIdInput.value.trim();
+        const password = this.studentPassword.value.trim();
         
         if (!name) {
             alert('학생 이름을 입력해주세요.');
@@ -406,9 +416,17 @@ class EzLive {
         }
         
         if (!remotePeerId) {
-            alert('강의 코드를 입력해주세요.');
+            alert('회의실 코드를 입력해주세요.');
             return;
         }
+        
+        if (!password) {
+            alert('회의실 비밀번호를 입력해주세요.');
+            return;
+        }
+        
+        // 비밀번호 저장 (접속 시 교사에게 전송하여 검증)
+        this.studentRoomPassword = password;
 
         try {
             this.isHost = false;
@@ -520,16 +538,63 @@ class EzLive {
     setupConnectionListeners() {
         this.connection.on('open', () => {
             console.log('Data connection established');
-            // 이름 교환
-            this.connection.send({
-                type: 'name',
-                name: this.myName
-            });
+            
+            // 학생이면 비밀번호 전송
+            if (!this.isHost && this.studentRoomPassword) {
+                this.connection.send({
+                    type: 'password',
+                    password: this.studentRoomPassword,
+                    name: this.myName
+                });
+            } else {
+                // 교사는 바로 이름 전송
+                this.connection.send({
+                    type: 'name',
+                    name: this.myName
+                });
+            }
         });
 
         this.connection.on('data', (data) => {
             console.log('Received data:', data);
-            if (data.type === 'name') {
+            if (data.type === 'password') {
+                // 교사가 학생의 비밀번호 검증
+                if (this.isHost) {
+                    if (data.password === this.roomPassword) {
+                        // 비밀번호 맞음
+                        this.connection.send({
+                            type: 'passwordApproved',
+                            message: '입장이 승인되었습니다.'
+                        });
+                        // 학생 이름 저장
+                        this.remoteName = data.name;
+                        this.updateVideoLabels();
+                    } else {
+                        // 비밀번호 틀림
+                        this.connection.send({
+                            type: 'passwordRejected',
+                            message: '회의실 비밀번호가 올바르지 않습니다.'
+                        });
+                        setTimeout(() => {
+                            this.connection.close();
+                        }, 1000);
+                    }
+                }
+            } else if (data.type === 'passwordApproved') {
+                // 학생이 승인 받음
+                console.log('Password approved');
+                // 이름 교환
+                this.connection.send({
+                    type: 'name',
+                    name: this.myName
+                });
+            } else if (data.type === 'passwordRejected') {
+                // 학생이 거부됨
+                alert(data.message);
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else if (data.type === 'name') {
                 // 상대방 이름 저장
                 this.remoteName = data.name;
                 this.updateVideoLabels();
@@ -537,6 +602,9 @@ class EzLive {
                 this.receiveFile(data);
             } else if (data.type === 'message') {
                 this.displayMessage(data.message, 'received', data.timestamp, data.senderName);
+            } else if (data.type === 'recordingRequest') {
+                // 녹화 요청 받음 (교사만)
+                this.handleRecordingRequest(data);
             } else if (data.type === 'screenShareRequest') {
                 // 화면공유 요청 받음 (교사만)
                 this.handleScreenShareRequest(data);
@@ -933,6 +1001,43 @@ class EzLive {
         alert(`${this.remoteName || '교사'}님에게 화면공유 요청을 보냈습니다. 승인을 기다려주세요.`);
     }
 
+    handleRecordingRequest(data) {
+        // 교사만 이 함수 실행
+        if (!this.isHost) return;
+
+        const approved = confirm(`${data.studentName}님이 녹화를 요청했습니다.\n\n녹화를 승인하시겠습니까?`);
+        
+        if (approved) {
+            // 학생에게 승인 메시지 전송
+            if (this.connection && this.connection.open) {
+                this.connection.send({
+                    type: 'recordingApproved'
+                });
+            }
+            
+            // 채팅에 알림
+            const timestamp = new Date().toLocaleTimeString('ko-KR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            this.displayMessage(`${data.studentName}님의 녹화를 승인했습니다.`, 'system', timestamp);
+        } else {
+            // 학생에게 거부 메시지 전송
+            if (this.connection && this.connection.open) {
+                this.connection.send({
+                    type: 'recordingRejected'
+                });
+            }
+            
+            // 채팅에 알림
+            const timestamp = new Date().toLocaleTimeString('ko-KR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            this.displayMessage(`${data.studentName}님의 녹화를 거부했습니다.`, 'system', timestamp);
+        }
+    }
+
     handleScreenShareRequest(data) {
         // 교사만 이 함수 실행
         if (!this.isHost) return;
@@ -1081,6 +1186,14 @@ class EzLive {
 
     async startRecording() {
         try {
+            // 학생이면 교사에게 승인 요청
+            if (!this.isHost) {
+                const approved = await this.requestRecordingPermission();
+                if (!approved) {
+                    return;
+                }
+            }
+            
             // 모바일 감지
             const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
             
@@ -1177,6 +1290,40 @@ class EzLive {
         }
     }
 
+    // 녹화 승인 요청 (학생용)
+    requestRecordingPermission() {
+        return new Promise((resolve) => {
+            if (!this.connection) {
+                alert('교사와 연결되지 않았습니다.');
+                resolve(false);
+                return;
+            }
+            
+            // 승인 응답 대기
+            const handleResponse = (data) => {
+                if (data.type === 'recordingApproved') {
+                    alert('교사가 녹화를 승인했습니다.');
+                    this.connection.off('data', handleResponse);
+                    resolve(true);
+                } else if (data.type === 'recordingRejected') {
+                    alert('교사가 녹화를 거부했습니다.');
+                    this.connection.off('data', handleResponse);
+                    resolve(false);
+                }
+            };
+            
+            this.connection.on('data', handleResponse);
+            
+            // 교사에게 녹화 승인 요청 전송
+            this.connection.send({
+                type: 'recordingRequest',
+                studentName: this.myName
+            });
+            
+            alert('교사에게 녹화 승인을 요청했습니다.\n잠시만 기다려주세요.');
+        });
+    }
+
     stopRecording() {
         if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
@@ -1194,6 +1341,55 @@ class EzLive {
                 minute: '2-digit' 
             });
             this.displayMessage(`녹화를 중지했습니다. 파일을 다운로드합니다.`, 'system', timestamp);
+        }
+    }
+
+    // 비디오 화면 캡쳐 (PNG로 저장)
+    captureVideo(type) {
+        const video = type === 'remote' ? this.remoteVideo : this.localVideo;
+        const label = type === 'remote' ? '상대방' : '내';
+        
+        if (!video || !video.srcObject) {
+            alert(`${label} 화면을 캡쳐할 수 없습니다.`);
+            return;
+        }
+        
+        try {
+            // 캔버스 생성
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // 비디오 프레임을 캔버스에 그리기
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // PNG로 변환 및 다운로드
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                
+                // 파일명 생성
+                const now = new Date();
+                const filename = `ezlive_capture_${type}_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}.png`;
+                
+                a.href = url;
+                a.download = filename;
+                a.click();
+                
+                URL.revokeObjectURL(url);
+                
+                // 채팅에 알림
+                const timestamp = new Date().toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                this.displayMessage(`${label} 화면을 캡쳐했습니다. (${filename})`, 'system', timestamp);
+            }, 'image/png');
+            
+        } catch (error) {
+            console.error('화면 캡쳐 오류:', error);
+            alert('화면 캡쳐에 실패했습니다.');
         }
     }
 
