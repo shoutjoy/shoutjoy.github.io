@@ -30,6 +30,9 @@ class EzLive {
         this.isPointer = false;
         this.pointerElement = null;
         this.drawingWindow = null;
+        // 판서 도구 설정 (가상 요소)
+        this.drawColor = { value: '#ff0000' };
+        this.drawWidth = { value: 3 };
         this.whiteboardWindow = null;
         this.whiteboardStream = null;
         this.isWhiteboardActive = false;
@@ -1043,9 +1046,34 @@ class EzLive {
                 this.closeScreenShareDrawing();
             }
             
+            // 판서 캔버스 완전히 제거 (내용이 남아있지 않도록)
+            if (this.screenShareDrawingCanvas) {
+                // 캔버스 내용 지우기
+                if (this.screenShareDrawingContext) {
+                    this.screenShareDrawingContext.clearRect(0, 0, this.screenShareDrawingCanvas.width, this.screenShareDrawingCanvas.height);
+                }
+                // 캔버스 DOM에서 제거
+                if (this.screenShareDrawingCanvas.parentNode) {
+                    this.screenShareDrawingCanvas.parentNode.removeChild(this.screenShareDrawingCanvas);
+                }
+                this.screenShareDrawingCanvas = null;
+                this.screenShareDrawingContext = null;
+            }
+            
+            // 포인터 제거
+            if (this.pointerElement && this.pointerElement.parentNode) {
+                this.pointerElement.parentNode.removeChild(this.pointerElement);
+                this.pointerElement = null;
+            }
+            
             // 채팅창의 판서 버튼 숨기기
             if (this.screenShareDrawingBtn) {
                 this.screenShareDrawingBtn.style.display = 'none';
+            }
+            
+            // 종료 버튼 숨기기
+            if (this.closeDrawingBtn) {
+                this.closeDrawingBtn.style.display = 'none';
             }
             
             if (this.drawingWindow && !this.drawingWindow.closed) {
@@ -2528,17 +2556,15 @@ class EzLive {
             
             // 색상 변경
             win.document.getElementById('drawColor').addEventListener('input', (e) => {
-                if (mainWindow.app.drawColor) {
-                    mainWindow.app.drawColor.value = e.target.value;
-                }
+                mainWindow.app.drawColor.value = e.target.value;
+                console.log('Color changed to:', e.target.value);
             });
             
             // 굵기 변경
             win.document.getElementById('drawWidth').addEventListener('input', (e) => {
-                if (mainWindow.app.drawWidth) {
-                    mainWindow.app.drawWidth.value = e.target.value;
-                }
+                mainWindow.app.drawWidth.value = parseInt(e.target.value);
                 win.document.getElementById('widthValue').textContent = e.target.value;
+                console.log('Width changed to:', e.target.value);
             });
             
             // 펜 버튼
