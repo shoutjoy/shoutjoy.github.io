@@ -155,8 +155,12 @@ class EzLive {
         if (this.localFullscreenBtn) this.localFullscreenBtn.addEventListener('click', () => this.toggleFullscreen('local'));
         this.remoteCaptureBtn = document.getElementById('remoteCaptureBtn');
         this.localCaptureBtn = document.getElementById('localCaptureBtn');
+        this.switchCameraBtn = document.getElementById('switchCameraBtn');
         if (this.remoteCaptureBtn) this.remoteCaptureBtn.addEventListener('click', () => this.captureVideo('remote'));
         if (this.localCaptureBtn) this.localCaptureBtn.addEventListener('click', () => this.captureVideo('local'));
+        if (this.switchCameraBtn) this.switchCameraBtn.addEventListener('click', () => this.switchCamera());
+        this.closeDrawingBtn = document.getElementById('closeDrawingBtn');
+        if (this.closeDrawingBtn) this.closeDrawingBtn.addEventListener('click', () => this.forceCloseDrawing());
         if (this.remotePipBtn) this.remotePipBtn.addEventListener('click', () => this.togglePIP('remote'));
         if (this.localPipBtn) this.localPipBtn.addEventListener('click', () => this.togglePIP('local'));
         if (this.remoteMaximizeBtn) this.remoteMaximizeBtn.addEventListener('click', () => this.toggleMaximize('remote'));
@@ -642,8 +646,20 @@ class EzLive {
 
     async getLocalStream() {
         try {
+            // 사용 가능한 카메라 목록 가져오기
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            this.videoDevices = devices.filter(device => device.kind === 'videoinput');
+            this.currentVideoDeviceIndex = 0;
+            
+            // 카메라가 2개 이상이면 전환 버튼 표시
+            if (this.videoDevices.length > 1 && this.switchCameraBtn) {
+                this.switchCameraBtn.style.display = 'inline-block';
+            }
+            
             this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
+                video: this.currentVideoDeviceIndex === 0 ? true : {
+                    deviceId: this.videoDevices[this.currentVideoDeviceIndex].deviceId
+                },
                 audio: true
             });
             
@@ -655,6 +671,55 @@ class EzLive {
             console.error('Error accessing media devices:', error);
             alert('카메라 또는 마이크에 접근할 수 없습니다. 권한을 확인해주세요.');
             throw error;
+        }
+    }
+    
+    async switchCamera() {
+        if (!this.videoDevices || this.videoDevices.length <= 1) {
+            alert('사용 가능한 카메라가 하나뿐입니다.');
+            return;
+        }
+        
+        try {
+            // 다음 카메라로 전환
+            this.currentVideoDeviceIndex = (this.currentVideoDeviceIndex + 1) % this.videoDevices.length;
+            
+            // 기존 비디오 트랙 중지
+            const videoTrack = this.localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.stop();
+            }
+            
+            // 새 비디오 스트림 가져오기
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    deviceId: this.videoDevices[this.currentVideoDeviceIndex].deviceId
+                },
+                audio: false
+            });
+            
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            const audioTrack = this.localStream.getAudioTracks()[0];
+            
+            // 새 스트림 생성
+            this.localStream = new MediaStream([newVideoTrack, audioTrack]);
+            this.localVideo.srcObject = this.localStream;
+            
+            // 상대방에게 새 비디오 트랙 전송
+            if (this.call && this.call.peerConnection) {
+                const sender = this.call.peerConnection.getSenders().find(s => 
+                    s.track && s.track.kind === 'video'
+                );
+                if (sender) {
+                    sender.replaceTrack(newVideoTrack);
+                }
+            }
+            
+            console.log('Camera switched to:', this.videoDevices[this.currentVideoDeviceIndex].label);
+            
+        } catch (error) {
+            console.error('Error switching camera:', error);
+            alert('카메라 전환에 실패했습니다.');
         }
     }
 
@@ -864,13 +929,20 @@ class EzLive {
                     cursor: isMobile ? undefined : 'always',
                     displaySurface: isMobile ? undefined : 'monitor'
                 },
-                audio: false
+                audio: true // 오디오 공유 옵션 활성화
             });
 
             this.originalStream = this.localStream;
-            const audioTrack = this.originalStream.getAudioTracks()[0];
-            const screenVideoTrack = this.screenStream.getVideoTracks()[0];
-            this.localStream = new MediaStream([screenVideoTrack, audioTrack]);
+            const micAudioTrack = this.originalStream.getAudioTracks()[0]; // 마이크 오디오
+            const screenVideoTrack = this.screenStream.getVideoTracks()[0]; // 화면 비디오
+            const screenAudioTrack = this.screenStream.getAudioTracks()[0]; // 화면 오디오 (시스템 사운드)
+            
+            // 화면 비디오 + 마이크 오디오 + 화면 오디오
+            const tracks = [screenVideoTrack];
+            if (micAudioTrack) tracks.push(micAudioTrack);
+            if (screenAudioTrack) tracks.push(screenAudioTrack);
+            
+            this.localStream = new MediaStream(tracks);
 
             this.localVideo.srcObject = this.localStream;
 
@@ -884,7 +956,7 @@ class EzLive {
             }
 
             this.isScreenSharing = true;
-            this.shareScreenBtn.innerHTML = '<span class="icon">🖥️</span>';
+            this.shareScreenBtn.innerHTML = '<span class="icon">⏹️</span><span class="label">공유중지</span>';
             this.shareScreenBtn.classList.add('sharing');
 
             // 채팅에 화면공유 시작 알림
@@ -945,7 +1017,7 @@ class EzLive {
             }
 
             this.isScreenSharing = false;
-            this.shareScreenBtn.innerHTML = '<span class="icon">🖥️</span>';
+            this.shareScreenBtn.innerHTML = '<span class="icon">🖥️</span><span class="label">화면공유</span>';
             this.shareScreenBtn.classList.remove('sharing');
 
             this.screenStream = null;
@@ -2297,6 +2369,11 @@ class EzLive {
     }
 
     clearDrawing() {
+        // 화면 공유 판서 캔버스 지우기
+        if (this.screenShareDrawingCanvas && this.screenShareDrawingContext) {
+            this.screenShareDrawingContext.clearRect(0, 0, this.screenShareDrawingCanvas.width, this.screenShareDrawingCanvas.height);
+        }
+        // 일반 판서 캔버스 지우기 (사용하지 않지만 호환성 유지)
         if (this.drawingCanvas && this.drawingContext) {
             this.drawingContext.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
         }
@@ -2953,6 +3030,9 @@ class EzLive {
             return;
         }
         
+        // 주의: 화면공유 판서는 본인 화면에만 표시되며 상대방에게는 전송되지 않습니다
+        console.warn('⚠️ 화면공유 판서 도구는 로컬에서만 작동합니다. 상대방에게는 보이지 않습니다.');
+        
         // 캔버스가 없으면 생성
         if (!this.screenShareDrawingCanvas) {
             this.createScreenShareDrawingCanvas();
@@ -2968,6 +3048,11 @@ class EzLive {
         }
         if (this.screenShareDrawingBtn) {
             this.screenShareDrawingBtn.classList.add('active');
+        }
+        
+        // 종료 버튼 표시
+        if (this.closeDrawingBtn) {
+            this.closeDrawingBtn.style.display = 'inline-block';
         }
     }
 
@@ -2990,6 +3075,52 @@ class EzLive {
         if (this.screenShareDrawingBtn) {
             this.screenShareDrawingBtn.classList.remove('active');
         }
+        
+        // 종료 버튼 숨기기
+        if (this.closeDrawingBtn) {
+            this.closeDrawingBtn.style.display = 'none';
+        }
+    }
+    
+    forceCloseDrawing() {
+        // 판서도구 완전히 종료
+        this.closeScreenShareDrawing();
+        
+        // 포인터 제거
+        if (this.pointerElement) {
+            this.pointerElement.remove();
+            this.pointerElement = null;
+        }
+        
+        // 상태 초기화
+        this.isDrawing = false;
+        this.isEraser = false;
+        this.isPointer = false;
+        
+        // 버튼 상태 초기화
+        if (this.drawingBtn) {
+            this.drawingBtn.classList.remove('active');
+        }
+        if (this.screenShareDrawingBtn) {
+            this.screenShareDrawingBtn.classList.remove('active');
+        }
+        if (this.penBtn) {
+            this.penBtn.classList.remove('active');
+        }
+        if (this.eraserBtn) {
+            this.eraserBtn.classList.remove('active');
+        }
+        if (this.pointerBtn) {
+            this.pointerBtn.classList.remove('active');
+        }
+        
+        // 모든 이벤트 리스너 제거를 위해 캔버스를 완전히 재생성
+        const oldCanvas = document.getElementById('screenShareDrawingCanvas');
+        if (oldCanvas && oldCanvas.parentNode) {
+            oldCanvas.parentNode.removeChild(oldCanvas);
+        }
+        
+        alert('판서도구가 종료되었습니다.');
     }
 
     createScreenShareDrawingCanvas() {
@@ -3071,11 +3202,21 @@ class EzLive {
     }
 
     drawScreenShare(e) {
-        if (!this.isDrawing || this.isPointer) return;
-        
         const rect = this.screenShareDrawingCanvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+        
+        // 포인터 모드일 때는 붉은 점만 표시
+        if (this.isPointer) {
+            if (this.pointerElement) {
+                this.pointerElement.style.left = e.clientX + 'px';
+                this.pointerElement.style.top = e.clientY + 'px';
+                this.pointerElement.style.display = 'block';
+            }
+            return;
+        }
+        
+        if (!this.isDrawing) return;
         
         this.screenShareDrawingContext.lineTo(x, y);
         // 지우개는 투명색으로 (캔버스만 지움, 배경 비디오는 보임)

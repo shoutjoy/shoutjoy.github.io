@@ -547,6 +547,8 @@ header p {
     display: flex;
     flex-direction: column;
     transition: all 0.3s ease;
+    position: relative;
+    z-index: 200;
 }
 
 /* 채팅 전체화면 모드 */

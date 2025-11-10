@@ -266,6 +266,9 @@
                         <video id="localVideo" autoplay playsinline muted></video>
                         <div class="video-label">나</div>
                         <div class="video-controls">
+                            <button id="switchCameraBtn" class="btn-video-control" title="카메라 전환" style="display: none;">
+                                <span class="icon">🔄</span>
+                            </button>
                             <button id="localCaptureBtn" class="btn-video-control" title="화면 캡쳐">
                                 <span class="icon">📸</span>
                             </button>
@@ -275,7 +278,7 @@
                             <button id="localMaximizeBtn" class="btn-video-control" title="최대화/최소화">
                                 <span class="icon">⤢</span>
                             </button>
-                            <button id="localFullscreenBtn" class="btn-video-control" title="전체화메">
+                            <button id="localFullscreenBtn" class="btn-video-control" title="전체화면">
                                 <span class="icon">⛶️</span>
                             </button>
                         </div>
@@ -287,6 +290,7 @@
                         <h3>💬 채팅</h3>
                         <div class="chat-header-actions">
                             <button id="screenShareDrawingBtn" class="btn-icon" title="판서도구 (화면공유 중)" style="display: none;">✏️</button>
+                            <button id="closeDrawingBtn" class="btn-icon" title="판서도구 종료" style="display: none; background: #f44336; color: white;">✕</button>
                             <button id="fullscreenChatBtn" class="btn-icon" title="채팅 전체화면">⛶️</button>
                             <button id="popoutChatBtn" class="btn-icon" title="새창으로 열기">🗗️</button>
                             <button id="closeChatBtn" class="btn-close mobile-only">✕</button>
