@@ -36,6 +36,19 @@ header p {
     opacity: 0.9;
 }
 
+header .copyright {
+    font-size: 0.95rem;
+    opacity: 0.95;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+header .subtitle {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    font-weight: 600;
+}
+
 /* 컨트롤 바 (헤더 아래) */
 .controls-bar {
     display: flex;
@@ -99,6 +112,10 @@ header p {
 
 .btn-control-bar.btn-lms {
     background: #4CAF50;
+}
+
+.btn-control-bar.btn-book {
+    background: #00BCD4;
 }
 
 .btn-control-bar.btn-replay {
@@ -194,6 +211,16 @@ header p {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: white;
     width: 100%;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    width: 100%;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
 }
 
 .btn-copy {

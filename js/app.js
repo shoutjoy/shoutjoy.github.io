@@ -54,11 +54,22 @@ class EzLive {
 
     initializeElements() {
         // Step elements
+        this.step0 = document.getElementById('step0');
+        this.stepTeacherAuth = document.getElementById('stepTeacherAuth');
         this.step1 = document.getElementById('step1');
         this.step2 = document.getElementById('step2');
         this.step3 = document.getElementById('step3');
+        
+        // Cards
+        this.teacherCard = document.getElementById('teacherCard');
+        this.studentCard = document.getElementById('studentCard');
 
         // Buttons
+        this.selectTeacherBtn = document.getElementById('selectTeacherBtn');
+        this.selectStudentBtn = document.getElementById('selectStudentBtn');
+        this.teacherAuthBtn = document.getElementById('teacherAuthBtn');
+        this.backToSelectBtn = document.getElementById('backToSelectBtn');
+        this.backToSelectFromStudentBtn = document.getElementById('backToSelectFromStudentBtn');
         this.createHostBtn = document.getElementById('createHostBtn');
         this.joinBtn = document.getElementById('joinBtn');
         this.copyBtn = document.getElementById('copyBtn');
@@ -80,14 +91,20 @@ class EzLive {
         this.fileBtn = document.getElementById('fileBtn');
         this.fileInput = document.getElementById('fileInput');
         this.teacherPassword = document.getElementById('teacherPassword');
+        this.teacherAuthPassword = document.getElementById('teacherAuthPassword');
         this.teacherName = document.getElementById('teacherName');
         this.teacherPassword = document.getElementById('teacherPassword');
         this.teacherClassCode = document.getElementById('teacherClassCode');
+        this.joinPeerId = document.getElementById('joinPeerId');
         this.studentName = document.getElementById('studentName');
         this.studentPassword = document.getElementById('studentPassword');
         this.endCallBtn = document.getElementById('endCallBtn');
         this.lmsBtn = document.getElementById('lmsBtn');
+        this.bookBtn = document.getElementById('bookBtn');
         this.replayBtn = document.getElementById('replayBtn');
+        this.saveTeacherInfoBtn = document.getElementById('saveTeacherInfoBtn');
+        this.loadTeacherInfoBtn = document.getElementById('loadTeacherInfoBtn');
+        this.teacherInfoFileInput = document.getElementById('teacherInfoFileInput');
         this.toggleChatViewBtn = document.getElementById('toggleChatViewBtn');
         this.controlsBar = document.getElementById('controlsBar');
 
@@ -141,6 +158,18 @@ class EzLive {
     }
 
     attachEventListeners() {
+        // Step 0: 교사/학생 선택
+        if (this.selectTeacherBtn) this.selectTeacherBtn.addEventListener('click', () => this.selectTeacher());
+        if (this.selectStudentBtn) this.selectStudentBtn.addEventListener('click', () => this.selectStudent());
+        
+        // 교사 인증
+        if (this.teacherAuthBtn) this.teacherAuthBtn.addEventListener('click', () => this.authenticateTeacher());
+        if (this.teacherAuthPassword) this.teacherAuthPassword.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.authenticateTeacher();
+        });
+        if (this.backToSelectBtn) this.backToSelectBtn.addEventListener('click', () => this.showStep(0));
+        if (this.backToSelectFromStudentBtn) this.backToSelectFromStudentBtn.addEventListener('click', () => this.showStep(0));
+        
         if (this.createHostBtn) this.createHostBtn.addEventListener('click', () => this.createHost());
         if (this.joinBtn) this.joinBtn.addEventListener('click', () => this.joinPeer());
         if (this.copyBtn) this.copyBtn.addEventListener('click', () => this.copyPeerId());
@@ -174,7 +203,11 @@ class EzLive {
         if (this.fileInput) this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         if (this.endCallBtn) this.endCallBtn.addEventListener('click', () => this.endCall());
         if (this.lmsBtn) this.lmsBtn.addEventListener('click', () => window.open('https://www.ezlive.kr/', '_blank'));
+        if (this.bookBtn) this.bookBtn.addEventListener('click', () => window.open('https://ezlive.kr/Source/Book/index.php', '_blank'));
         if (this.replayBtn) this.replayBtn.addEventListener('click', () => window.open('https://jlive.co.kr/', '_blank'));
+        if (this.saveTeacherInfoBtn) this.saveTeacherInfoBtn.addEventListener('click', () => this.saveTeacherInfoToFile());
+        if (this.loadTeacherInfoBtn) this.loadTeacherInfoBtn.addEventListener('click', () => this.teacherInfoFileInput.click());
+        if (this.teacherInfoFileInput) this.teacherInfoFileInput.addEventListener('change', (e) => this.loadTeacherInfoFromFile(e));
         if (this.toggleChatViewBtn) this.toggleChatViewBtn.addEventListener('click', () => this.toggleChatView());
         if (this.approveScreenShareBtn) this.approveScreenShareBtn.addEventListener('click', () => this.approveScreenShare());
         if (this.rejectScreenShareBtn) this.rejectScreenShareBtn.addEventListener('click', () => this.rejectScreenShare());
@@ -199,28 +232,100 @@ class EzLive {
         if (this.screenShareDrawingBtn) this.screenShareDrawingBtn.addEventListener('click', () => this.toggleScreenShareDrawing());
     }
 
-    loadTeacherInfo() {
-        // localStorage에서 교사 정보 불러오기
-        const savedTeacherName = localStorage.getItem('ezlive_teacher_name');
-        const savedTeacherPassword = localStorage.getItem('ezlive_teacher_password');
-        const savedClassCode = localStorage.getItem('ezlive_class_code');
-
-        if (savedTeacherName && this.teacherName) {
-            this.teacherName.value = savedTeacherName;
+    // txt 파일로 교사 정보 저장
+    saveTeacherInfoToFile() {
+        const name = this.teacherName.value.trim();
+        const password = this.teacherPassword.value.trim();
+        const classCode = this.teacherClassCode.value.trim();
+        
+        if (!name || !password || !classCode) {
+            alert('교사 이름, 비밀번호, 회의실 코드를 모두 입력해주세요.');
+            return;
         }
-        if (savedTeacherPassword && this.teacherPassword) {
-            this.teacherPassword.value = savedTeacherPassword;
-        }
-        if (savedClassCode && this.teacherClassCode) {
-            this.teacherClassCode.value = savedClassCode;
-        }
+        
+        // txt 파일 내용 생성
+        const content = `ezlive 로그인 정보\n` +
+                       `==================\n` +
+                       `교사 이름: ${name}\n` +
+                       `회의실 비밀번호: ${password}\n` +
+                       `회의실 코드: ${classCode}\n` +
+                       `==================\n` +
+                       `저장일시: ${new Date().toLocaleString('ko-KR')}`;
+        
+        // Blob 생성 및 다운로드
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ezlive_로그인정보_${classCode}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert('로그인 정보가 txt 파일로 저장되었습니다.\n파일명: ezlive_로그인정보_' + classCode + '.txt');
     }
-
+    
+    // txt 파일에서 교사 정보 불러오기
+    loadTeacherInfoFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const content = e.target.result;
+                const lines = content.split('\n');
+                
+                let name = '';
+                let password = '';
+                let classCode = '';
+                
+                // 파일 내용 파싱
+                for (let line of lines) {
+                    if (line.includes('교사 이름:')) {
+                        name = line.split('교사 이름:')[1].trim();
+                    } else if (line.includes('회의실 비밀번호:')) {
+                        password = line.split('회의실 비밀번호:')[1].trim();
+                    } else if (line.includes('회의실 코드:')) {
+                        classCode = line.split('회의실 코드:')[1].trim();
+                    }
+                }
+                
+                if (!name || !password || !classCode) {
+                    alert('올바른 로그인 정보 파일이 아닙니다.');
+                    return;
+                }
+                
+                // 입력란에 값 설정
+                if (this.teacherName) this.teacherName.value = name;
+                if (this.teacherPassword) this.teacherPassword.value = password;
+                if (this.teacherClassCode) this.teacherClassCode.value = classCode;
+                
+                alert(`로그인 정보를 불러왔습니다!\n\n교사: ${name}\n회의실 코드: ${classCode}`);
+                
+            } catch (error) {
+                console.error('파일 읽기 오류:', error);
+                alert('파일을 읽는 중 오류가 발생했습니다.');
+            }
+            
+            // input 파일 초기화 (같은 파일 재선택 가능하도록)
+            event.target.value = '';
+        };
+        
+        reader.onerror = () => {
+            alert('파일을 읽을 수 없습니다.');
+            event.target.value = '';
+        };
+        
+        reader.readAsText(file, 'UTF-8');
+    }
+    
+    // 회의실 생성 시 호출 (더 이상 자동 저장 안 함)
     saveTeacherInfo(name, password, classCode) {
-        // localStorage에 교사 정보 저장
-        localStorage.setItem('ezlive_teacher_name', name);
-        localStorage.setItem('ezlive_teacher_password', password);
-        localStorage.setItem('ezlive_class_code', classCode);
+        // 이 함수는 createHost에서 호출되지만 더 이상 localStorage에 저장하지 않음
+        // txt 파일 저장은 사용자가 직접 "입력저장" 버튼을 눌러야 함
+        console.log('회의실 생성됨:', name, classCode);
     }
 
     generateRandomClassCode() {
@@ -234,11 +339,19 @@ class EzLive {
     }
 
     showStep(stepNumber) {
-        [this.step1, this.step2, this.step3].forEach(step => {
-            step.classList.remove('active');
+        [this.step0, this.stepTeacherAuth, this.step1, this.step2, this.step3].forEach(step => {
+            if (step) step.classList.remove('active');
         });
 
         switch(stepNumber) {
+            case 0:
+                if (this.step0) this.step0.classList.add('active');
+                this.controlsBar.style.display = 'none';
+                break;
+            case 0.5:
+                if (this.stepTeacherAuth) this.stepTeacherAuth.classList.add('active');
+                this.controlsBar.style.display = 'none';
+                break;
             case 1:
                 this.step1.classList.add('active');
                 this.controlsBar.style.display = 'none';
@@ -253,6 +366,40 @@ class EzLive {
                 break;
         }
     }
+    
+    // 교사 선택
+    selectTeacher() {
+        this.showStep(0.5);
+    }
+    
+    // 학생 선택
+    selectStudent() {
+        this.showStep(1);
+        // 교사 카드 숨기고 학생 카드 표시
+        if (this.teacherCard) this.teacherCard.style.display = 'none';
+        if (this.studentCard) this.studentCard.style.display = 'block';
+    }
+    
+    // 교사 인증
+    authenticateTeacher() {
+        const password = this.teacherAuthPassword.value.trim();
+        const correctPassword = 'a123456!';
+        
+        if (password === correctPassword) {
+            // 인증 성공
+            this.showStep(1);
+            // 학생 카드 숨기고 교사 카드 표시
+            if (this.teacherCard) this.teacherCard.style.display = 'block';
+            if (this.studentCard) this.studentCard.style.display = 'none';
+            // 비밀번호 초기화
+            this.teacherAuthPassword.value = '';
+        } else {
+            // 인증 실패
+            alert('교사 비밀번호가 올바르지 않습니다.');
+            this.teacherAuthPassword.value = '';
+            this.teacherAuthPassword.focus();
+        }
+    }
 
     checkInvitationLink() {
         // URL에서 invitation-code 파라미터 확인
@@ -261,6 +408,8 @@ class EzLive {
         
         if (invitationCode) {
             this.invitationCode = invitationCode;
+            // step0 건너뛰고 바로 학생 입장 화면으로
+            this.showStep(1);
             this.showStudentJoinUI();
         }
     }
@@ -684,8 +833,17 @@ class EzLive {
         }
         
         try {
-            // 다음 카메라로 전환
-            this.currentVideoDeviceIndex = (this.currentVideoDeviceIndex + 1) % this.videoDevices.length;
+            // 이전 인덱스 저장
+            const previousIndex = this.currentVideoDeviceIndex;
+            
+            // 2개 카메라인 경우 토글, 3개 이상인 경우 순환
+            if (this.videoDevices.length === 2) {
+                // 2개 카메라: 0 ↔ 1 토글
+                this.currentVideoDeviceIndex = this.currentVideoDeviceIndex === 0 ? 1 : 0;
+            } else {
+                // 3개 이상: 순환
+                this.currentVideoDeviceIndex = (this.currentVideoDeviceIndex + 1) % this.videoDevices.length;
+            }
             
             // 기존 비디오 트랙 중지
             const videoTrack = this.localStream.getVideoTracks()[0];
@@ -718,7 +876,13 @@ class EzLive {
                 }
             }
             
-            console.log('Camera switched to:', this.videoDevices[this.currentVideoDeviceIndex].label);
+            const cameraName = this.videoDevices[this.currentVideoDeviceIndex].label || `카메라 ${this.currentVideoDeviceIndex + 1}`;
+            console.log('Camera switched to:', cameraName);
+            
+            // 토스트 알림 (선택사항)
+            if (this.videoDevices.length === 2) {
+                console.log('카메라 토글: 다시 누르면 이전 카메라로 돌아갑니다.');
+            }
             
         } catch (error) {
             console.error('Error switching camera:', error);
@@ -927,34 +1091,71 @@ class EzLive {
             }
 
             // 모바일과 데스크톱에서 모두 작동
-            this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+            // 시스템 오디오 캡처 요청
+            const displayMediaOptions = {
                 video: {
                     cursor: isMobile ? undefined : 'always',
                     displaySurface: isMobile ? undefined : 'monitor'
                 },
-                audio: true // 오디오 공유 옵션 활성화
-            });
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    sampleRate: 44100,
+                    suppressLocalAudioPlayback: false
+                }
+            };
+            
+            this.screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
 
             this.originalStream = this.localStream;
             const micAudioTrack = this.originalStream.getAudioTracks()[0]; // 마이크 오디오
             const screenVideoTrack = this.screenStream.getVideoTracks()[0]; // 화면 비디오
             const screenAudioTrack = this.screenStream.getAudioTracks()[0]; // 화면 오디오 (시스템 사운드)
             
-            // 화면 비디오 + 마이크 오디오 + 화면 오디오
+            // 시스템 오디오 우선, 없으면 마이크 오디오 사용
             const tracks = [screenVideoTrack];
-            if (micAudioTrack) tracks.push(micAudioTrack);
-            if (screenAudioTrack) tracks.push(screenAudioTrack);
+            
+            if (screenAudioTrack) {
+                // 시스템 오디오가 있는 경우
+                console.log('시스템 오디오 캡처 성공');
+                tracks.push(screenAudioTrack);
+                
+                // 마이크도 함께 전송하려면 AudioContext로 믹싱 필요
+                // 여기서는 시스템 오디오만 전송
+            } else if (micAudioTrack) {
+                // 시스템 오디오가 없으면 마이크만
+                console.log('시스템 오디오 없음, 마이크 오디오 사용');
+                tracks.push(micAudioTrack);
+            }
             
             this.localStream = new MediaStream(tracks);
 
             this.localVideo.srcObject = this.localStream;
 
             if (this.call && this.call.peerConnection) {
-                const sender = this.call.peerConnection.getSenders().find(s => 
+                // 비디오 트랙 교체
+                const videoSender = this.call.peerConnection.getSenders().find(s => 
                     s.track && s.track.kind === 'video'
                 );
-                if (sender) {
-                    sender.replaceTrack(screenVideoTrack);
+                if (videoSender && screenVideoTrack) {
+                    videoSender.replaceTrack(screenVideoTrack);
+                }
+                
+                // 오디오 트랙 교체
+                const audioSender = this.call.peerConnection.getSenders().find(s => 
+                    s.track && s.track.kind === 'audio'
+                );
+                
+                if (audioSender) {
+                    if (screenAudioTrack) {
+                        // 시스템 오디오로 교체
+                        console.log('시스템 오디오 트랙으로 교체');
+                        audioSender.replaceTrack(screenAudioTrack);
+                    } else if (micAudioTrack) {
+                        // 마이크 오디오 유지
+                        console.log('마이크 오디오 유지');
+                        // 이미 마이크가 전송 중이므로 교체 불필요
+                    }
                 }
             }
 
@@ -1009,12 +1210,22 @@ class EzLive {
                 this.localVideo.srcObject = this.localStream;
 
                 if (this.call && this.call.peerConnection) {
+                    // 원래 비디오 트랙으로 복원
                     const videoTrack = this.originalStream.getVideoTracks()[0];
-                    const sender = this.call.peerConnection.getSenders().find(s => 
+                    const videoSender = this.call.peerConnection.getSenders().find(s => 
                         s.track && s.track.kind === 'video'
                     );
-                    if (sender && videoTrack) {
-                        sender.replaceTrack(videoTrack);
+                    if (videoSender && videoTrack) {
+                        videoSender.replaceTrack(videoTrack);
+                    }
+                    
+                    // 원래 오디오 트랙으로 복원
+                    const audioTrack = this.originalStream.getAudioTracks()[0];
+                    const audioSender = this.call.peerConnection.getSenders().find(s => 
+                        s.track && s.track.kind === 'audio'
+                    );
+                    if (audioSender && audioTrack) {
+                        audioSender.replaceTrack(audioTrack);
                     }
                 }
             }
@@ -2721,9 +2932,15 @@ class EzLive {
                         <div class="tool-group">
                             <button id="clearBtn" class="btn-tool">🗑️ 전체삭제</button>
                         </div>
+                        <div class="tool-group" style="border-left: 2px solid #ddd; padding-left: 15px;">
+                            <button id="prevPageBtn" class="btn-tool" title="이전 페이지">◀️</button>
+                            <span class="width-value" id="pageInfo" style="min-width: 80px; text-align: center;">1 / 1</span>
+                            <button id="nextPageBtn" class="btn-tool" title="다음 페이지">▶️</button>
+                            <button id="addPageBtn" class="btn-tool" style="background: #2196F3; color: white;">➕ 페이지 추가</button>
+                        </div>
                         <div class="tool-group">
-                            <button id="savePngBtn" class="btn-tool" style="background: #4CAF50; color: white;">💾 PNG저장</button>
-                            <button id="savePdfBtn" class="btn-tool" style="background: #FF5722; color: white;">📄 PDF저장</button>
+                            <button id="savePngBtn" class="btn-tool" style="background: #4CAF50; color: white;">💾 현재페이지 PNG</button>
+                            <button id="savePdfBtn" class="btn-tool" style="background: #FF5722; color: white;">📄 모두 저장 (PDF)</button>
                         </div>
                     </div>
                     <canvas id="canvas"></canvas>
@@ -2740,6 +2957,10 @@ class EzLive {
                         let currentColor = '#000000';
                         let currentWidth = 3;
                         
+                        // 멀티 페이지 지원
+                        let pages = [canvas.toDataURL()]; // 첫 페이지는 빈 캔버스
+                        let currentPage = 0;
+                        
                         // 도구 버튼
                         const penBtn = document.getElementById('penBtn');
                         const eraserBtn = document.getElementById('eraserBtn');
@@ -2748,6 +2969,37 @@ class EzLive {
                         const drawColor = document.getElementById('drawColor');
                         const drawWidth = document.getElementById('drawWidth');
                         const widthValue = document.getElementById('widthValue');
+                        
+                        // 페이지 관련 버튼
+                        const prevPageBtn = document.getElementById('prevPageBtn');
+                        const nextPageBtn = document.getElementById('nextPageBtn');
+                        const addPageBtn = document.getElementById('addPageBtn');
+                        const pageInfo = document.getElementById('pageInfo');
+                        
+                        // 페이지 정보 업데이트
+                        function updatePageInfo() {
+                            pageInfo.textContent = \`\${currentPage + 1} / \${pages.length}\`;
+                            prevPageBtn.disabled = currentPage === 0;
+                            nextPageBtn.disabled = currentPage === pages.length - 1;
+                            
+                            prevPageBtn.style.opacity = currentPage === 0 ? '0.5' : '1';
+                            nextPageBtn.style.opacity = currentPage === pages.length - 1 ? '0.5' : '1';
+                        }
+                        
+                        // 현재 페이지 저장
+                        function saveCurrentPage() {
+                            pages[currentPage] = canvas.toDataURL();
+                        }
+                        
+                        // 페이지 로드
+                        function loadPage(pageIndex) {
+                            const img = new Image();
+                            img.onload = () => {
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                ctx.drawImage(img, 0, 0);
+                            };
+                            img.src = pages[pageIndex];
+                        }
                         
                         // 펜 모드
                         penBtn.addEventListener('click', () => {
@@ -2779,13 +3031,48 @@ class EzLive {
                         // 전체 삭제
                         clearBtn.addEventListener('click', () => {
                             ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            saveCurrentPage();
                         });
                         
-                        // PNG 저장
+                        // 이전 페이지
+                        prevPageBtn.addEventListener('click', () => {
+                            if (currentPage > 0) {
+                                saveCurrentPage();
+                                currentPage--;
+                                loadPage(currentPage);
+                                updatePageInfo();
+                            }
+                        });
+                        
+                        // 다음 페이지
+                        nextPageBtn.addEventListener('click', () => {
+                            if (currentPage < pages.length - 1) {
+                                saveCurrentPage();
+                                currentPage++;
+                                loadPage(currentPage);
+                                updatePageInfo();
+                            }
+                        });
+                        
+                        // 페이지 추가
+                        addPageBtn.addEventListener('click', () => {
+                            saveCurrentPage();
+                            pages.push(canvas.toDataURL()); // 빈 페이지 추가
+                            currentPage = pages.length - 1;
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            updatePageInfo();
+                            alert(\`새 페이지가 추가되었습니다! (페이지 \${currentPage + 1})\`);
+                        });
+                        
+                        // 초기 페이지 정보 표시
+                        updatePageInfo();
+                        
+                        // PNG 저장 (현재 페이지만)
                         const savePngBtn = document.getElementById('savePngBtn');
                         savePngBtn.addEventListener('click', () => {
+                            saveCurrentPage();
                             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-                            const filename = \`ezlive_whiteboard_\${timestamp}.png\`;
+                            const filename = \`ezlive_whiteboard_page\${currentPage + 1}_\${timestamp}.png\`;
                             
                             canvas.toBlob((blob) => {
                                 const url = URL.createObjectURL(blob);
@@ -2794,14 +3081,17 @@ class EzLive {
                                 a.download = filename;
                                 a.click();
                                 URL.revokeObjectURL(url);
-                                alert('PNG 파일로 저장되었습니다!\\n파일명: ' + filename);
+                                alert(\`현재 페이지(\${currentPage + 1})가 PNG로 저장되었습니다!\\n파일명: \${filename}\`);
                             }, 'image/png');
                         });
                         
-                        // PDF 저장
+                        // PDF 저장 (모든 페이지)
                         const savePdfBtn = document.getElementById('savePdfBtn');
                         savePdfBtn.addEventListener('click', async () => {
                             try {
+                                // 현재 페이지 저장
+                                saveCurrentPage();
+                                
                                 // jsPDF 라이브러리 동적 로드
                                 if (typeof window.jspdf === 'undefined') {
                                     const script = document.createElement('script');
@@ -2816,10 +3106,7 @@ class EzLive {
                                 
                                 const { jsPDF } = window.jspdf;
                                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-                                const filename = \`ezlive_whiteboard_\${timestamp}.pdf\`;
-                                
-                                // 캔버스를 이미지로 변환
-                                const imgData = canvas.toDataURL('image/png');
+                                const filename = \`ezlive_whiteboard_\${pages.length}pages_\${timestamp}.pdf\`;
                                 
                                 // PDF 생성 (캔버스 크기에 맞춤)
                                 const pdf = new jsPDF({
@@ -2828,12 +3115,19 @@ class EzLive {
                                     format: [canvas.width, canvas.height]
                                 });
                                 
-                                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                                // 모든 페이지를 PDF에 추가
+                                for (let i = 0; i < pages.length; i++) {
+                                    if (i > 0) {
+                                        pdf.addPage();
+                                    }
+                                    pdf.addImage(pages[i], 'PNG', 0, 0, canvas.width, canvas.height);
+                                }
+                                
                                 pdf.save(filename);
-                                alert('PDF 파일로 저장되었습니다!\\n파일명: ' + filename);
+                                alert(\`모든 페이지(\${pages.length}페이지)가 PDF로 저장되었습니다!\\n파일명: \${filename}\`);
                             } catch (error) {
                                 console.error('PDF 저장 오류:', error);
-                                alert('PDF 저장에 실패했습니다. PNG로 저장해주세요.');
+                                alert('PDF 저장에 실패했습니다. 각 페이지를 PNG로 저장해주세요.');
                             }
                         });
                         
@@ -2908,8 +3202,12 @@ class EzLive {
                         }
                         
                         function stopDrawing() {
-                            isDrawing = false;
-                            ctx.beginPath();
+                            if (isDrawing) {
+                                isDrawing = false;
+                                ctx.beginPath();
+                                // 그리기가 끝나면 현재 페이지 저장
+                                saveCurrentPage();
+                            }
                         }
                         
                         // 창 크기 조절

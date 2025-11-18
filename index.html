@@ -136,7 +136,8 @@
     <div class="container">
         <header>
             <h1>🎥 ezlive</h1>
-            <p>P2P 화상 채팅 애플리케이션</p>
+            <p class="copyright">Copyright (주)이지올댓, 연세대학교 인지공학 연구실</p>
+            <p class="subtitle">화상 솔루션</p>
         </header>
 
         <!-- 컨트롤 바 (헤더 아래 배치, step3에서만 표시) -->
@@ -169,6 +170,10 @@
                 <span class="icon">🎓</span>
                 <span class="label">LMS</span>
             </button>
+            <button id="bookBtn" class="btn-control-bar btn-book" title="교재자료실">
+                <span class="icon">📚</span>
+                <span class="label">교재자료실</span>
+            </button>
             <button id="replayBtn" class="btn-control-bar btn-replay" title="다시보기">
                 <span class="icon">🔄</span>
                 <span class="label">다시보기</span>
@@ -187,25 +192,60 @@
             </button>
         </div>
 
-        <!-- Step 1: 서버 생성 -->
-        <div id="step1" class="step active">
+        <!-- Step 0: 교사/학생 선택 -->
+        <div id="step0" class="step active">
             <div class="card">
+                <h2>👥 사용자 선택</h2>
+                <p>교사 또는 학생을 선택하세요</p>
+                <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 30px;">
+                    <button id="selectTeacherBtn" class="btn btn-primary" style="padding: 20px; font-size: 1.2rem;">
+                        🏫 교사 시작
+                    </button>
+                    <button id="selectStudentBtn" class="btn btn-secondary" style="padding: 20px; font-size: 1.2rem;">
+                        🎓 학생 시작
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 0.5: 교사 비밀번호 인증 -->
+        <div id="stepTeacherAuth" class="step">
+            <div class="card">
+                <h2>🔐 교사 인증</h2>
+                <p>교사 전용 비밀번호를 입력하세요</p>
+                <input type="password" id="teacherAuthPassword" placeholder="교사 비밀번호 입력" class="input" style="margin-top: 20px;">
+                <button id="teacherAuthBtn" class="btn btn-primary">인증하기</button>
+                <button id="backToSelectBtn" class="btn btn-secondary" style="margin-top: 10px;">뒤로 가기</button>
+            </div>
+        </div>
+
+        <!-- Step 1: 서버 생성 -->
+        <div id="step1" class="step">
+            <div class="card" id="teacherCard">
                 <h2>🏫 교사용 화상강의 생성</h2>
                 <p>강의를 생성하고 학생들을 초대하세요.</p>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button id="saveTeacherInfoBtn" class="btn btn-success" style="flex: 1;">💾 입력저장 (txt)</button>
+                    <button id="loadTeacherInfoBtn" class="btn btn-secondary" style="flex: 1;">📂 로그인정보 불러오기</button>
+                </div>
                 <input type="text" id="teacherName" placeholder="교사 이름 입력" class="input">
-                <input type="password" id="teacherPassword" value="1234" placeholder="회의실 비밀번호" class="input">
-                <input type="text" id="teacherClassCode" value="class01" placeholder="회의실 코드 입력" class="input">
-                <p class="hint">💡 회의실 코드와 비밀번호를 변경하거나 그대로 사용하세요</p>
+                <input type="password" id="teacherPassword" placeholder="회의실 비밀번호 입력" class="input">
+                <input type="text" id="teacherClassCode" placeholder="회의실 코드 입력" class="input">
+                <p class="hint">💡 입력 후 "입력저장" 버튼으로 txt 파일에 저장하세요</p>
                 <button id="createHostBtn" class="btn btn-primary">회의실 생성</button>
                 
-                <div class="divider">또는</div>
-                
+                <!-- 숨겨진 파일 업로드 input -->
+                <input type="file" id="teacherInfoFileInput" accept=".txt" style="display: none;">
+            </div>
+
+            <div class="card" id="studentCard" style="display: none;">
                 <h2>🎓 학생용 회의실 참여</h2>
                 <p>교사가 공유한 회의실 코드와 비밀번호를 입력하세요.</p>
                 <input type="text" id="studentName" placeholder="학생 이름 입력" class="input">
                 <input type="text" id="joinPeerId" placeholder="회의실 코드 입력" class="input">
                 <input type="password" id="studentPassword" placeholder="회의실 비밀번호 입력" class="input">
                 <button id="joinBtn" class="btn btn-secondary">회의실 참여</button>
+                <button id="backToSelectFromStudentBtn" class="btn btn-secondary" style="margin-top: 10px;">뒤로 가기</button>
             </div>
         </div>
 
