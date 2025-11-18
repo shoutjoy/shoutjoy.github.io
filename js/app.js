@@ -45,7 +45,6 @@ class EzLive {
         this.invitationCode = null;
         
         this.initializeElements();
-        this.loadTeacherInfo();
         this.attachEventListeners();
         this.setupChatSync();
         this.checkInvitationLink();
@@ -116,7 +115,6 @@ class EzLive {
         this.mainLayout = document.getElementById('mainLayout');
 
         // Inputs
-        this.joinPeerIdInput = document.getElementById('joinPeerId');
         this.chatInput = document.getElementById('chatInput');
 
         // Display elements
@@ -159,8 +157,12 @@ class EzLive {
 
     attachEventListeners() {
         // Step 0: 교사/학생 선택
-        if (this.selectTeacherBtn) this.selectTeacherBtn.addEventListener('click', () => this.selectTeacher());
-        if (this.selectStudentBtn) this.selectStudentBtn.addEventListener('click', () => this.selectStudent());
+        if (this.selectTeacherBtn) {
+            this.selectTeacherBtn.addEventListener('click', () => this.selectTeacher());
+        }
+        if (this.selectStudentBtn) {
+            this.selectStudentBtn.addEventListener('click', () => this.selectStudent());
+        }
         
         // 교사 인증
         if (this.teacherAuthBtn) this.teacherAuthBtn.addEventListener('click', () => this.authenticateTeacher());
@@ -346,23 +348,23 @@ class EzLive {
         switch(stepNumber) {
             case 0:
                 if (this.step0) this.step0.classList.add('active');
-                this.controlsBar.style.display = 'none';
+                if (this.controlsBar) this.controlsBar.style.display = 'none';
                 break;
             case 0.5:
                 if (this.stepTeacherAuth) this.stepTeacherAuth.classList.add('active');
-                this.controlsBar.style.display = 'none';
+                if (this.controlsBar) this.controlsBar.style.display = 'none';
                 break;
             case 1:
-                this.step1.classList.add('active');
-                this.controlsBar.style.display = 'none';
+                if (this.step1) this.step1.classList.add('active');
+                if (this.controlsBar) this.controlsBar.style.display = 'none';
                 break;
             case 2:
-                this.step2.classList.add('active');
-                this.controlsBar.style.display = 'none';
+                if (this.step2) this.step2.classList.add('active');
+                if (this.controlsBar) this.controlsBar.style.display = 'none';
                 break;
             case 3:
-                this.step3.classList.add('active');
-                this.controlsBar.style.display = 'flex';
+                if (this.step3) this.step3.classList.add('active');
+                if (this.controlsBar) this.controlsBar.style.display = 'flex';
                 break;
         }
     }
@@ -563,7 +565,7 @@ class EzLive {
 
     async joinPeer() {
         const name = this.studentName.value.trim();
-        const remotePeerId = this.joinPeerIdInput.value.trim();
+        const remotePeerId = this.joinPeerId.value.trim();
         const password = this.studentPassword.value.trim();
         
         if (!name) {
