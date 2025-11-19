@@ -223,6 +223,14 @@ header .subtitle {
     background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
 }
 
+.btn-small {
+    padding: 10px 15px;
+    font-size: 0.9rem;
+    width: auto;
+    flex: 1;
+    min-width: 0;
+}
+
 .btn-copy {
     background: #4CAF50;
     color: white;

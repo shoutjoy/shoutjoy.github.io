@@ -224,14 +224,14 @@
             <div class="card" id="teacherCard">
                 <h2>🏫 교사용 화상강의 생성</h2>
                 <p>강의를 생성하고 학생들을 초대하세요.</p>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <button id="saveTeacherInfoBtn" class="btn btn-success" style="flex: 1;">💾 입력저장 (txt)</button>
-                    <button id="loadTeacherInfoBtn" class="btn btn-secondary" style="flex: 1;">📂 로그인정보 불러오기</button>
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button id="saveTeacherInfoBtn" class="btn btn-success btn-small">💾 입력저장</button>
+                    <button id="loadTeacherInfoBtn" class="btn btn-secondary btn-small">📂 정보불러오기</button>
                 </div>
                 <input type="text" id="teacherName" placeholder="교사 이름 입력" class="input">
+                <input type="text" id="teacherClassCode" placeholder="회의실 이름 입력 (예: math2024, class01)" class="input">
                 <input type="password" id="teacherPassword" placeholder="회의실 비밀번호 입력" class="input">
-                <input type="text" id="teacherClassCode" placeholder="회의실 코드 입력" class="input">
-                <p class="hint">💡 입력 후 "입력저장" 버튼으로 txt 파일에 저장하세요</p>
+                <p class="hint">💡 입력 순서: 이름 → 회의실 이름 → 비밀번호</p>
                 <button id="createHostBtn" class="btn btn-primary">회의실 생성</button>
                 
                 <!-- 숨겨진 파일 업로드 input -->

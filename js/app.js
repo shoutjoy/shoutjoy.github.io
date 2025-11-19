@@ -249,8 +249,8 @@ class EzLive {
         const content = `ezlive 로그인 정보\n` +
                        `==================\n` +
                        `교사 이름: ${name}\n` +
+                       `회의실 이름: ${classCode}\n` +
                        `회의실 비밀번호: ${password}\n` +
-                       `회의실 코드: ${classCode}\n` +
                        `==================\n` +
                        `저장일시: ${new Date().toLocaleString('ko-KR')}`;
         
@@ -283,12 +283,14 @@ class EzLive {
                 let password = '';
                 let classCode = '';
                 
-                // 파일 내용 파싱
+                // 파일 내용 파싱 (구형식 "회의실 코드:", 신형식 "회의실 이름:" 모두 지원)
                 for (let line of lines) {
                     if (line.includes('교사 이름:')) {
                         name = line.split('교사 이름:')[1].trim();
                     } else if (line.includes('회의실 비밀번호:')) {
                         password = line.split('회의실 비밀번호:')[1].trim();
+                    } else if (line.includes('회의실 이름:')) {
+                        classCode = line.split('회의실 이름:')[1].trim();
                     } else if (line.includes('회의실 코드:')) {
                         classCode = line.split('회의실 코드:')[1].trim();
                     }
@@ -304,7 +306,7 @@ class EzLive {
                 if (this.teacherPassword) this.teacherPassword.value = password;
                 if (this.teacherClassCode) this.teacherClassCode.value = classCode;
                 
-                alert(`로그인 정보를 불러왔습니다!\n\n교사: ${name}\n회의실 코드: ${classCode}`);
+                alert(`로그인 정보를 불러왔습니다!\n\n교사: ${name}\n회의실 이름: ${classCode}`);
                 
             } catch (error) {
                 console.error('파일 읽기 오류:', error);
